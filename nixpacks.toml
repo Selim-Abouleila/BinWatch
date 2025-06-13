@@ -1,12 +1,14 @@
+[project]
+projectDirectory = "BackEnd"
 
 [phases.setup]
-# Pull in Node
 nixPkgs = ["nodejs"]
 
 [phases.install]
-# Run npm install inside backend
-cmds = ["cd BackEnd && npm install"]
+cmds = ["npm install"]
 
 [phases.build]
-# No extra build step
 cmds = []
+
+[phases.start]
+cmds = ["npm start"]
