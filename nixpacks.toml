@@ -1,14 +1,12 @@
-[project]
-projectDirectory = "BackEnd"
 
 [phases.setup]
 nixPkgs = ["nodejs"]
 
 [phases.install]
-cmds = ["npm install"]
+cmds = ["cd BackEnd && npm install"]
 
 [phases.build]
 cmds = []
 
 [phases.start]
-cmds = ["npm start"]
+cmds = ["cd BackEnd && npm start"]
