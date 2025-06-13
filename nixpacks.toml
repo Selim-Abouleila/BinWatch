@@ -8,5 +8,3 @@ cmds = ["cd BackEnd && npm install"]
 [phases.build]
 cmds = []
 
-[phases.start]
-cmds = ["cd BackEnd && npm start"]
