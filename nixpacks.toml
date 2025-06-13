@@ -5,7 +5,7 @@ nixPkgs = ["nodejs"]
 
 [phases.install]
 # Run npm install inside backend
-cmds = ["cd backend && npm install"]
+cmds = ["cd BackEnd && npm install"]
 
 [phases.build]
 # No extra build step
