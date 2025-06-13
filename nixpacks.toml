@@ -1,19 +1,10 @@
-[project]
-# Tell Nixpacks that your Node app lives in the 'backend' folder
-projectDirectory = "backend"
 
 [phases.setup]
-# Pull in Node
 nixPkgs = ["nodejs"]
 
 [phases.install]
-# Run npm install inside backend
-cmds = ["npm install"]
+cmds = ["cd BackEnd && npm install"]
 
 [phases.build]
-# No extra build step
 cmds = []
 
-[phases.start]
-# Start your server
-cmds = ["npm start"]
