@@ -1,5 +1,5 @@
 Flask
 Pillow
-opencv-python
+opencv-python-headless
 numpy
 gunicorn
