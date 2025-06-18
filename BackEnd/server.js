@@ -61,7 +61,7 @@ app.post('/upload', upload.single('image'), async (req, res) => {
       method: 'POST',
       body:   form,
       headers: form.getHeaders(),   // critical for multipart/form-data
-      timeout: 5000                 // ms – guards against hung Flask
+      timeout: 30000                 // ms – guards against hung Flask
     });
 
     if (!flaskResp.ok) {
