@@ -1,3 +1,5 @@
 Flask
-gunicorn
 Pillow
+opencv-python
+numpy
+gunicorn
