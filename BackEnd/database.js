@@ -19,3 +19,7 @@ module.exports = {
   // if you ever need to get a raw connection:
   getConnection: (...args) => pool.getConnection(...args),
 };
+
+const FLASK_HOST = process.env.FLASK_HOST;   // example: python-api.up.railway.internal
+const FLASK_PORT = process.env.FLASK_PORT;   // example: 8080
+const FLASK_URL  = `http://${FLASK_HOST}:${FLASK_PORT}`;  // full base URL
