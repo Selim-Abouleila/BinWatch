@@ -1,11 +1,105 @@
 <!DOCTYPE html>
-<html>
-<head><title>TrashIA</title></head>
-<body>
-  <h1>Welcome to TrashIA</h1>
-  <form action="/upload" method="POST" enctype="multipart/form-data">
-    <input type="file" name="image" required>
-    <button type="submit">Upload</button>
-  </form>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>TrashAI – Suivi intelligent des déchets</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .hero-image {
+      position: relative;
+      width: 100%;
+      min-height: 60vh;
+      background-image: url('https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?fm=jpg&q=60&w=3000&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8cG91YmVsbGV8ZW58MHx8MHx8fDA%3D');
+      background-size: cover;
+      background-position: center;
+    }
+    .hero-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      color: white;
+    }
+  </style>
+</head>
+
+<body class="bg-light text-dark">
+
+<!-- Navigation -->
+<nav class="navbar navbar-expand-lg bg-success shadow sticky-top">
+  <div class="container">
+    <a class="navbar-brand fw-bold text-white" href="index.html">TrashAI</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link text-white" href="index.html">Accueil</a></li>
+        <li class="nav-item"><a class="nav-link text-white" href="analyse.html">Analyse</a></li>
+        <li class="nav-item"><a class="nav-link text-white" href="map.html">Carte</a></li>
+        <li class="nav-item"><a class="nav-link text-white" href="about.html">À propos</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero Section -->
+<header class="hero-image d-flex align-items-center justify-content-center">
+  <div class="hero-overlay"></div>
+  <div class="hero-content text-center px-4">
+    <h1 class="display-4 fw-bold">TrashAI</h1>
+    <p class="lead mt-2">Anticiper les déchets, préserver nos villes</p>
+    <a href="#about" class="btn btn-light btn-lg mt-3">En savoir plus</a>
+  </div>
+</header>
+
+<!-- About Section -->
+<section id="about" class="py-5 bg-white">
+  <div class="container text-center">
+    <h2 class="text-success mb-4">À propos de TrashAI</h2>
+    <p class="lead text-muted">
+      TrashAI est une plateforme intelligente qui utilise l'analyse d'images pour détecter les débordements de poubelles
+      et prévenir les dépôts sauvages. Une solution innovante pour un avenir plus propre.
+    </p>
+  </div>
+</section>
+
+<!-- Features Section -->
+<section id="features" class="py-5 bg-light">
+  <div class="container">
+    <h2 class="text-success text-center mb-5">Fonctionnalités</h2>
+    <div class="row text-center">
+      <div class="col-md-4 mb-4">
+        <div class="p-4 bg-white shadow-sm rounded">
+          <h4 class="text-green-700 fw-bold">Upload d'images</h4>
+          <p class="text-muted">Téléchargez des images pour analyser l'état des poubelles.</p>
+        </div>
+      </div>
+      <div class="col-md-4 mb-4">
+        <div class="p-4 bg-white shadow-sm rounded">
+          <h4 class="text-green-700 fw-bold">Détection automatique</h4>
+          <p class="text-muted">Identifiez les poubelles pleines ou vides grâce à l'IA.</p>
+        </div>
+      </div>
+      <div class="col-md-4 mb-4">
+        <div class="p-4 bg-white shadow-sm rounded">
+          <h4 class="text-green-700 fw-bold">Cartographie dynamique</h4>
+          <p class="text-muted">Visualisez les zones à risque de débordement en temps réel.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="bg-success text-white text-center py-4">
+  <p class="mb-0">&copy; 2025 TrashAI – Tous droits réservés.</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
