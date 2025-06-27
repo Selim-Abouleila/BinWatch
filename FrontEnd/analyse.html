@@ -4,6 +4,16 @@
   <meta charset="UTF-8">
   <title>Analyse – TrashAI</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    #preview {
+      max-width: 100%;
+      height: auto;
+      margin-bottom: 1rem;
+    }
+    .thumbnail {
+      max-height: 60px;
+    }
+  </style>
 </head>
 <body class="bg-light text-dark">
 
@@ -30,16 +40,122 @@
 <!-- Content -->
 <div class="container py-5">
   <h1 class="text-success mb-4">Module d’analyse</h1>
-  <p>
-    Cette section permet de téléverser des images, extraire des caractéristiques visuelles (taille, couleurs, contraste…),
-    et détecter automatiquement l’état des poubelles. Elle est la base du système prédictif de TrashAI.
-  </p>
+  <p>Cette section permet de téléverser des images, annoter leur contenu, et visualiser les informations liées à chaque image.</p>
+
+  <!-- Upload form -->
+  <form id="uploadForm" action="http://localhost:5000/upload" method="POST" enctype="multipart/form-data">
+    <div class="mb-3">
+      <label for="imageInput" class="form-label">Téléverser une image :</label>
+      <input class="form-control" type="file" id="imageInput" name="image" accept="image/*" required>
+    </div>
+
+    <!-- Preview -->
+    <div id="imageContainer" class="mb-3 d-none">
+      <p class="fw-bold">Aperçu :</p>
+      <img id="preview" class="img-fluid border">
+      <div class="mt-2">
+        <button type="button" id="btnPleine" class="btn btn-outline-success me-2">Annoter : Pleine</button>
+        <button type="button" id="btnVide" class="btn btn-outline-secondary">Annoter : Vide</button>
+      </div>
+    </div>
+
+    <!-- Questionnaire -->
+    <div id="detailsContainer" class="mb-3 d-none">
+      <div class="mb-2">
+        <label for="locationField" class="form-label">Localisation :</label>
+        <input class="form-control" type="text" id="locationField" name="location" placeholder="Ex: Rue Victor Hugo, Lyon" required>
+      </div>
+      <div class="mb-2">
+        <label for="dateField" class="form-label">Date de l'observation :</label>
+        <input class="form-control" type="date" id="dateField" name="date" required>
+      </div>
+      <input type="hidden" id="annotationField" name="annotation">
+    </div>
+
+    <button type="submit" class="btn btn-success mt-3 d-none" id="analyzeButton">Analyser</button>
+  </form>
+
+  <!-- Table -->
+  <div class="mt-5">
+    <h5>Historique des images téléversées</h5>
+    <table class="table table-bordered table-hover">
+      <thead class="table-success">
+        <tr>
+          <th>Miniature</th>
+          <th>Date</th>
+          <th>Annotation</th>
+          <th>Localisation</th>
+          <th>Chemin (simulé)</th>
+        </tr>
+      </thead>
+      <tbody id="historyTable"></tbody>
+    </table>
+  </div>
 </div>
 
 <!-- Footer -->
 <footer class="bg-success text-white py-4 text-center">
   &copy; 2025 TrashAI – Tous droits réservés.
 </footer>
+
+<script>
+  const imageInput = document.getElementById("imageInput");
+  const preview = document.getElementById("preview");
+  const imageContainer = document.getElementById("imageContainer");
+  const detailsContainer = document.getElementById("detailsContainer");
+  const btnPleine = document.getElementById("btnPleine");
+  const btnVide = document.getElementById("btnVide");
+  const annotationField = document.getElementById("annotationField");
+  const historyTable = document.getElementById("historyTable");
+  const analyzeButton = document.getElementById("analyzeButton");
+  const locationField = document.getElementById("locationField");
+  const dateField = document.getElementById("dateField");
+
+  let currentImageDataUrl = "";
+
+  imageInput.addEventListener("change", (event) => {
+    const file = event.target.files[0];
+    if (file && file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        currentImageDataUrl = e.target.result;
+        preview.src = currentImageDataUrl;
+        imageContainer.classList.remove("d-none");
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  function showQuestionnaire(annotation) {
+    annotationField.value = annotation;
+    detailsContainer.classList.remove("d-none");
+    analyzeButton.classList.remove("d-none");
+  }
+
+  function addToHistory(annotation, location, date) {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td><img src="${currentImageDataUrl}" class="thumbnail img-thumbnail"></td>
+      <td>${date}</td>
+      <td>${annotation}</td>
+      <td>${location}</td>
+      <td>/uploads/${Date.now()}.jpg</td>
+    `;
+    historyTable.prepend(row);
+  }
+
+  btnPleine.addEventListener("click", () => showQuestionnaire("Pleine"));
+  btnVide.addEventListener("click", () => showQuestionnaire("Vide"));
+
+  document.getElementById("uploadForm").addEventListener("submit", (e) => {
+    if (!annotationField.value || !locationField.value || !dateField.value) {
+      e.preventDefault();
+      alert("Veuillez compléter tous les champs (annotation, localisation et date) avant de soumettre.");
+    } else {
+      addToHistory(annotationField.value, locationField.value, dateField.value);
+    }
+  });
+</script>
 
 </body>
 </html>
