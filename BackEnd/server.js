@@ -9,6 +9,23 @@ const fetch    = require('node-fetch');    // npm i node-fetch@2
 const FormData = require('form-data');     // npm i form-data
 const { Pool } = require('pg');            // npm i pg
 
+
+console.log('❯ HOST       =', process.env.HOST);
+console.log('❯ PORT       =', process.env.PORT);
+console.log('❯ USER       =', process.env.USER);
+console.log('❯ PASSWORD   =', process.env.PASSWORD);
+console.log('❯ DATABASE   =', process.env.DATABASE);
+
+const pool = new Pool({
+  host:     process.env.HOST,
+  port:     process.env.PORT,
+  user:     process.env.USER,
+  password: process.env.PASSWORD,
+  database: process.env.DATABASE,
+  ssl:      { rejectUnauthorized: false }
+});
+
+
 // ── CONFIG ────────────────────────────────────────────────────────
 const FLASK_URL    = `http://${process.env.FLASK_HOST || 'localhost'}:${process.env.FLASK_PORT || '5000'}`;
 const PORT         = process.env.PORT || 3000;
@@ -16,15 +33,8 @@ const FRONTEND_DIR = path.join(__dirname, '..', 'FrontEnd');
 const UPLOADS_DIR  = path.join(__dirname, 'uploads');
 
 
-console.log('❯ DATABASE_URL=', process.env.DATABASE_URL);
-console.log('❯ FLASK_HOST=', process.env.FLASK_HOST);
-
 // Postgres pool (will pick up PGHOST, PGUSER, PGPASSWORD, PGDATABASE, PGPORT)
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
 
 // Ensure uploads folder exists
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
