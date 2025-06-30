@@ -14,6 +14,11 @@ const PORT         = process.env.PORT || 3000;
 const FRONTEND_DIR = path.join(__dirname, '..', 'FrontEnd');
 const UPLOADS_DIR  = path.join(__dirname, 'uploads');
 
+
+require('dotenv').config();   // ← make sure this is the very first line
+
+console.log('❯ DATABASE_URL=', process.env.DATABASE_URL);
+
 // Postgres pool (will pick up PGHOST, PGUSER, PGPASSWORD, PGDATABASE, PGPORT)
 
 const pool = new Pool({
