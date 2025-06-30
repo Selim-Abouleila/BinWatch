@@ -43,6 +43,6 @@ https://trashia-production.up.railway.app/index.html
 
 ```plaintext
 /
-├── BackEnd/         # Flask API and AI logic
+├── BackEnd/         # Flask API and Javascript logic
 ├── FrontEnd/        # Static website or Node.js frontend
 ├── nixpacks.toml    # Deployment config (Railway)
