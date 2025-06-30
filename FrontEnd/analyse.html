@@ -20,9 +20,7 @@
 <!-- Navbar -->
 <nav class="navbar navbar-expand-lg bg-success shadow sticky-top">
   <div class="container">
-    <a class="navbar-brand d-flex align-items-center text-white fw-bold fs-4" href="index.html" style="padding-top: 0.4rem; padding-bottom: 0.4rem;">
-      TrashAI
-    </a>
+    <a class="navbar-brand text-white fw-bold fs-4" href="index.html">TrashAI</a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
       <span class="navbar-toggler-icon"></span>
     </button>
@@ -37,25 +35,25 @@
     <a class="btn btn-outline-light" href="login.html">Connexion</a>
   </div>
 </nav>
-<img src="http://localhost:3000/uploads/default.jpeg" alt="Logo TrashAI" class="d-none"><!-- Content -->
+
 <div class="container py-5">
   <h1 class="text-success mb-4">Module d’analyse</h1>
   <p>Cette section permet de téléverser des images, annoter leur contenu, et visualiser les informations liées à chaque image.</p>
 
   <!-- Upload form -->
-  <form id="uploadForm" action="http://localhost:5000/upload" method="POST" enctype="multipart/form-data">
+  <form id="uploadForm" enctype="multipart/form-data">
     <div class="mb-3">
       <label for="imageInput" class="form-label">Téléverser une image :</label>
       <input class="form-control" type="file" id="imageInput" name="image" accept="image/*" required>
     </div>
 
-    <!-- Preview -->
+    <!-- Preview & annotation buttons -->
     <div id="imageContainer" class="mb-3 d-none">
       <p class="fw-bold">Aperçu :</p>
       <img id="preview" class="img-fluid border">
       <div class="mt-2">
         <button type="button" id="btnPleine" class="btn btn-outline-success me-2">Annoter : Pleine</button>
-        <button type="button" id="btnVide" class="btn btn-outline-secondary">Annoter : Vide</button>
+        <button type="button" id="btnVide"   class="btn btn-outline-secondary">Annoter : Vide</button>
       </div>
     </div>
 
@@ -63,7 +61,7 @@
     <div id="detailsContainer" class="mb-3 d-none">
       <div class="mb-2">
         <label for="locationField" class="form-label">Localisation :</label>
-        <input class="form-control" type="text" id="locationField" name="location" placeholder="Ex: Rue Victor Hugo, Lyon" required>
+        <input class="form-control" type="text" id="locationField" name="location" placeholder="Ex : Rue Victor Hugo, Lyon" required>
       </div>
       <div class="mb-2">
         <label for="dateField" class="form-label">Date de l'observation :</label>
@@ -75,19 +73,19 @@
     <button type="submit" class="btn btn-success mt-3 d-none" id="analyzeButton">Analyser</button>
   </form>
 
-  <!-- Table -->
+  <!-- History table -->
   <div class="mt-5">
     <h5>Historique des images téléversées</h5>
     <table class="table table-bordered table-hover">
       <thead class="table-success">
-        <tr>
-          <th>Miniature</th>
-          <th>Date</th>
-          <th>Annotation</th>
-          <th>Localisation</th>
-          <th>Chemin (simulé)</th>
-          <th>Résultat de l'analyse</th>
-        </tr>
+      <tr>
+        <th>Miniature</th>
+        <th>Date</th>
+        <th>Annotation</th>
+        <th>Localisation</th>
+        <th>Chemin</th>
+        <th>Résultat de l'analyse</th>
+      </tr>
       </thead>
       <tbody id="historyTable"></tbody>
     </table>
@@ -98,32 +96,30 @@
 <footer class="bg-success text-white py-4 text-center">
   &copy; 2025 TrashAI – Tous droits réservés.
 </footer>
+
 <script>
-  const imageInput = document.getElementById("imageInput");
-  const preview = document.getElementById("preview");
-  const imageContainer = document.getElementById("imageContainer");
-  const detailsContainer = document.getElementById("detailsContainer");
-  const btnPleine = document.getElementById("btnPleine");
-  const btnVide = document.getElementById("btnVide");
+  const imageInput      = document.getElementById("imageInput");
+  const preview         = document.getElementById("preview");
+  const imageContainer  = document.getElementById("imageContainer");
+  const detailsContainer= document.getElementById("detailsContainer");
+  const btnPleine       = document.getElementById("btnPleine");
+  const btnVide         = document.getElementById("btnVide");
   const annotationField = document.getElementById("annotationField");
-  const historyTable = document.getElementById("historyTable");
-  const analyzeButton = document.getElementById("analyzeButton");
-  const locationField = document.getElementById("locationField");
-  const dateField = document.getElementById("dateField");
+  const analyzeButton   = document.getElementById("analyzeButton");
+  const locationField   = document.getElementById("locationField");
+  const dateField       = document.getElementById("dateField");
+  const historyTable    = document.getElementById("historyTable");
 
-  let currentImageDataUrl = "";
-
-  imageInput.addEventListener("change", (event) => {
-    const file = event.target.files[0];
-    if (file && file.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        currentImageDataUrl = e.target.result;
-        preview.src = currentImageDataUrl;
-        imageContainer.classList.remove("d-none");
-      };
-      reader.readAsDataURL(file);
-    }
+  // When a file is chosen, show preview & annotation choices
+  imageInput.addEventListener("change", () => {
+    const file = imageInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      preview.src = e.target.result;
+      imageContainer.classList.remove("d-none");
+    };
+    reader.readAsDataURL(file);
   });
 
   function showQuestionnaire(annotation) {
@@ -132,64 +128,65 @@
     analyzeButton.classList.remove("d-none");
   }
 
-  function addToHistory(annotation, location, date, result, imagePath) {
+  function addToHistory(annotation, location, date, imagePath, label) {
     const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
-    history.push({ annotation, location, date, result, imagePath: imagePath });
-    history.sort((a, b) => new Date(b.date) - new Date(a.date)); // Sort by date (descending)
+    history.push({ annotation, location, date, imagePath, label });
+    history.sort((a, b) => new Date(b.date) - new Date(a.date));
     sessionStorage.setItem("analysisHistory", JSON.stringify(history));
-
-    // Update table
     updateHistoryTable(history);
   }
 
   function updateHistoryTable(history) {
-    historyTable.innerHTML = ""; // Clear table
-    history.forEach(({ imagePath, date, annotation, location, result }) => {
+    historyTable.innerHTML = "";
+    history.forEach(({ annotation, location, date, imagePath, label }) => {
       const row = document.createElement("tr");
       row.innerHTML = `
-            <td><img src="${imagePath}" class="thumbnail img-thumbnail"></td>
-            <td>${date}</td>
-            <td>${annotation}</td>
-            <td>${location}</td>
-            <td>${imagePath}</td>
-            <td><pre class="small">${JSON.stringify(result, null, 2)}</pre></td>
+          <td><img src="${imagePath}" class="thumbnail img-thumbnail"></td>
+          <td>${date}</td>
+          <td>${annotation}</td>
+          <td>${location}</td>
+          <td>${imagePath}</td>
+          <td>${label}</td>
         `;
       historyTable.appendChild(row);
     });
   }
 
   btnPleine.addEventListener("click", () => showQuestionnaire("Pleine"));
-  btnVide.addEventListener("click", () => showQuestionnaire("Vide"));
+  btnVide.addEventListener("click",   () => showQuestionnaire("Vide"));
 
-  document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+  document.getElementById("uploadForm").addEventListener("submit", async e => {
     e.preventDefault();
-    const fileInput = document.getElementById("imageInput");
-    if (!fileInput.files.length) return;
+    if (!imageInput.files.length) return;
 
     const formData = new FormData();
-    formData.append("image", fileInput.files[0]);
+    formData.append("image", imageInput.files[0]);
 
     try {
-      const res = await fetch("/upload", { method: "POST", body: formData });
-      if (!res.ok) throw new Error("Erreur serveur: " + res.status);
+      const res  = await fetch("/upload", { method: "POST", body: formData });
+      if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`);
       const data = await res.json();
-      console.log(data);
-      const imagePath = `http://localhost:3000/uploads/${data.features.filename}`;
-      console.log(data.features.filename)
-      console.log(imagePath)
-      addToHistory(annotationField.value, locationField.value, dateField.value, data.features, imagePath);
+
+      // data.imageUrl is e.g. "/uploads/12345-file.jpg"
+      // data.label    is "pleine" or "vide"
+      addToHistory(
+              annotationField.value,
+              locationField.value,
+              dateField.value,
+              data.imageUrl,
+              data.label
+      );
     } catch (err) {
-      alert(err.message ?? "Erreur inconnue");
+      alert(err.message || "Erreur inconnue");
     }
   });
 
-  // Reload history from sessionStorage
+  // On load, rehydrate history
   window.addEventListener("load", () => {
     const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
-    history.sort((a, b) => new Date(b.date) - new Date(a.date)); // Sort by date (descending)
+    history.sort((a, b) => new Date(b.date) - new Date(a.date));
     updateHistoryTable(history);
   });
 </script>
-
 </body>
 </html>
