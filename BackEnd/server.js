@@ -17,7 +17,7 @@ const UPLOADS_DIR  = path.join(__dirname, 'uploads');
 
 
 console.log('❯ DATABASE_URL=', process.env.DATABASE_URL);
-console.log('❯ FLASK_PORT=', process.env.PORT);
+console.log('❯ FLASK_HOST=', process.env.FLASK_HOST);
 
 // Postgres pool (will pick up PGHOST, PGUSER, PGPASSWORD, PGDATABASE, PGPORT)
 
