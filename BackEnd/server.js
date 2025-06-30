@@ -47,51 +47,75 @@ app.get('/', (req, res) =>
 
 // Route: upload → local metadata → call Flask → respond
 app.post('/upload', upload.single('image'), async (req, res) => {
-  try {
-    /* ---------- 1. Local feature extraction ---------------------- */
-    const imagePath = path.join(UPLOADS_DIR, req.file.filename);
-    const metadata  = await sharp(imagePath).metadata();
-    const stats     = fs.statSync(imagePath);
+  // Validate upload
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'No file uploaded' });
+  }
 
-    /* ---------- 2. Send image to Flask --------------------------- */
+  try {
+    // 1. Local feature extraction
+    const imagePath = path.join(UPLOADS_DIR, req.file.filename);
+    const { width, height, format } = await sharp(imagePath).metadata();
+    const { size } = fs.statSync(imagePath);
+    const fileSizeKB = Math.round(size / 1024);
+
+    // 2. Send image to Flask for classification
     const form = new FormData();
     form.append('image', fs.createReadStream(imagePath));
 
     const flaskResp = await fetch(`${FLASK_URL}/classify`, {
       method: 'POST',
       body:   form,
-      headers: form.getHeaders(),   // critical for multipart/form-data
-      timeout: 30000                 // ms – guards against hung Flask
+      headers: form.getHeaders(),
+      timeout: 30000
     });
 
     if (!flaskResp.ok) {
       throw new Error(`Flask responded ${flaskResp.status}`);
     }
-    const { label } = await flaskResp.json();   // e.g. { label: "plastic" }
 
-    /* ---------- 3. Merge results & reply ------------------------- */
-    const features = {
-      filename: req.file.filename,
-      sizeKB:   (stats.size / 1024).toFixed(1),
-      width:    metadata.width,
-      height:   metadata.height,
-      format:   metadata.format,
-      label     // from Flask
-    };
+    const { label } = await flaskResp.json(); // e.g. { label: 'plastic' }
 
-    res.json({
+    // 3. Insert available fields into PostgreSQL
+    const insertQuery = `
+      INSERT INTO public.image_features
+        (path, file_size_kb, width, height)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id;
+    `;
+
+    const values = [
+      `/uploads/${req.file.filename}`,
+      fileSizeKB,
+      width,
+      height
+    ];
+
+    const dbRes = await pool.query(insertQuery, values);
+    const newId = dbRes.rows[0].id;
+
+    // 4. Reply to client with DB id and features
+    return res.status(201).json({
       success:  true,
+      id:       newId,
       imageUrl: `/uploads/${req.file.filename}`,
-      features
+      features: {
+        filename: req.file.filename,
+        sizeKB:   fileSizeKB,
+        width,
+        height,
+        format,
+        label
+      }
     });
 
-  } catch (err) {
-    console.error(err);
-    res.status(502).json({ success: false, error: 'Upload or classify failed' });
+  } catch (error) {
+    console.error('Error in /upload:', error);
+    // Cleanup on failure
+    if (req.file) {
+      try { fs.unlinkSync(path.join(UPLOADS_DIR, req.file.filename)); } catch {}
+    }
+    return res.status(500).json({ success: false, error: 'Upload, classification, or database insertion failed' });
   }
 });
-
-app.listen(PORT, () =>
-  console.log(`Server running on http://localhost:${PORT}`)
-);
 // ------------------------------------------------------------------
