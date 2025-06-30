@@ -101,11 +101,11 @@ app.post('/upload', upload.single('image'), async (req, res) => {
 
     // 6. Send back both the URL and everything from Python
     res.json({
-      success:     true,
-      imageUrl:    localPath,
-      pythonLabel,          // "pleine" or "vide"
-      pythonFeatures: pyFeat // { filename, width, height, size_kb, avg_r, avg_g, avg_b, ground_ratio }
-    });
+  success:  true,
+  imageUrl: localPath,      // unchanged
+  label:    pythonLabel,    // rename from pythonLabel → label
+  features: pyFeat          // rename from pythonFeatures → features
+});
 
   } catch (err) {
     console.error('[/upload] error:', err);
