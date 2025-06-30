@@ -37,8 +37,7 @@
     <a class="btn btn-outline-light" href="login.html">Connexion</a>
   </div>
 </nav>
-
-<!-- Content -->
+<img src="http://localhost:3000/uploads/default.jpeg" alt="Logo TrashAI" class="d-none"><!-- Content -->
 <div class="container py-5">
   <h1 class="text-success mb-4">Module d’analyse</h1>
   <p>Cette section permet de téléverser des images, annoter leur contenu, et visualiser les informations liées à chaque image.</p>
@@ -87,6 +86,7 @@
           <th>Annotation</th>
           <th>Localisation</th>
           <th>Chemin (simulé)</th>
+          <th>Résultat de l'analyse</th>
         </tr>
       </thead>
       <tbody id="historyTable"></tbody>
@@ -98,7 +98,6 @@
 <footer class="bg-success text-white py-4 text-center">
   &copy; 2025 TrashAI – Tous droits réservés.
 </footer>
-
 <script>
   const imageInput = document.getElementById("imageInput");
   const preview = document.getElementById("preview");
@@ -133,28 +132,62 @@
     analyzeButton.classList.remove("d-none");
   }
 
-  function addToHistory(annotation, location, date) {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td><img src="${currentImageDataUrl}" class="thumbnail img-thumbnail"></td>
-      <td>${date}</td>
-      <td>${annotation}</td>
-      <td>${location}</td>
-      <td>/uploads/${Date.now()}.jpg</td>
-    `;
-    historyTable.prepend(row);
+  function addToHistory(annotation, location, date, result, imagePath) {
+    const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
+    history.push({ annotation, location, date, result, imagePath: imagePath });
+    history.sort((a, b) => new Date(b.date) - new Date(a.date)); // Sort by date (descending)
+    sessionStorage.setItem("analysisHistory", JSON.stringify(history));
+
+    // Update table
+    updateHistoryTable(history);
+  }
+
+  function updateHistoryTable(history) {
+    historyTable.innerHTML = ""; // Clear table
+    history.forEach(({ imagePath, date, annotation, location, result }) => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+            <td><img src="${imagePath}" class="thumbnail img-thumbnail"></td>
+            <td>${date}</td>
+            <td>${annotation}</td>
+            <td>${location}</td>
+            <td>${imagePath}</td>
+            <td><pre class="small">${JSON.stringify(result, null, 2)}</pre></td>
+        `;
+      historyTable.appendChild(row);
+    });
   }
 
   btnPleine.addEventListener("click", () => showQuestionnaire("Pleine"));
   btnVide.addEventListener("click", () => showQuestionnaire("Vide"));
 
-  document.getElementById("uploadForm").addEventListener("submit", (e) => {
-    if (!annotationField.value || !locationField.value || !dateField.value) {
-      e.preventDefault();
-      alert("Veuillez compléter tous les champs (annotation, localisation et date) avant de soumettre.");
-    } else {
-      addToHistory(annotationField.value, locationField.value, dateField.value);
+  document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fileInput = document.getElementById("imageInput");
+    if (!fileInput.files.length) return;
+
+    const formData = new FormData();
+    formData.append("image", fileInput.files[0]);
+
+    try {
+      const res = await fetch("/upload", { method: "POST", body: formData });
+      if (!res.ok) throw new Error("Erreur serveur: " + res.status);
+      const data = await res.json();
+      console.log(data);
+      const imagePath = `http://localhost:3000/uploads/${data.features.filename}`;
+      console.log(data.features.filename)
+      console.log(imagePath)
+      addToHistory(annotationField.value, locationField.value, dateField.value, data.features, imagePath);
+    } catch (err) {
+      alert(err.message ?? "Erreur inconnue");
     }
+  });
+
+  // Reload history from sessionStorage
+  window.addEventListener("load", () => {
+    const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
+    history.sort((a, b) => new Date(b.date) - new Date(a.date)); // Sort by date (descending)
+    updateHistoryTable(history);
   });
 </script>
 
