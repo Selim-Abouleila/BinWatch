@@ -1,4 +1,3 @@
-require('dotenv').config();   // ← make sure this is the very first line
 
 // server.js ---------------------------------------------------------
 const express  = require('express');
