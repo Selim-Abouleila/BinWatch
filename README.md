@@ -1,6 +1,6 @@
 # 🗑️ TrashAI – Smart Waste Container Monitoring
 
-A full-stack web platform that detects whether public trash containers are **full or empty using only a photo**. Built for the smart-city space, the system uses lightweight AI to bring real-time visibility into waste bin usage.
+A full-stack web platform that detects whether public trash containers are **full or empty using only a photo**. Built for the smart-city space, the system uses lightweight python code to bring real-time visibility into waste bin usage.
 
 https://trashia-production.up.railway.app/index.html
 
@@ -23,15 +23,15 @@ https://trashia-production.up.railway.app/index.html
 ## 🚀 Features
 
 - 📸 Upload a photo of a trash container
-- 🤖 AI model predicts: **Full / Empty**
+- 🤖 Model predicts: **Full / Empty**
 - 🌐 Web-based interface, mobile-friendly
 - 📊 Real-time detection using custom-trained model
-- 🔌 Flask API for AI model inference
+- 🔌 Flask API for prediction inference
 - 🗂️ Modular BackEnd and FrontEnd folders
 
 ---
 
-## 🧠 AI Model
+## 🧠 Model
 
 - The model is currently fine-tuned to a dataset from **Efrei Paris**.
 - Detection is optimized for containers in public urban settings.
