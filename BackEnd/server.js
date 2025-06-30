@@ -54,12 +54,16 @@ app.get('/', (req, res) =>
 // Route: upload → local metadata → call Flask → insert into Postgres → respond
 app.post('/upload', upload.single('image'), async (req, res) => {
   try {
-    // 1. Local feature extraction
-    const imagePath = path.join(UPLOADS_DIR, req.file.filename);
-    const metadata  = await sharp(imagePath).metadata();
-    const stats     = fs.statSync(imagePath);
+    // 1. Ensure we have a file
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
 
-    // 2. Send image to Flask for classification
+    // 2. Build the local URL & filepath
+    const localPath = `/uploads/${req.file.filename}`;
+    const imagePath = path.join(UPLOADS_DIR, req.file.filename);
+
+    // 3. Send the image on to Flask for all the heavy lifting
     const form = new FormData();
     form.append('image', fs.createReadStream(imagePath));
 
@@ -72,47 +76,43 @@ app.post('/upload', upload.single('image'), async (req, res) => {
     if (!flaskResp.ok) {
       throw new Error(`Flask responded ${flaskResp.status}`);
     }
-    const { label } = await flaskResp.json();  // e.g. { label: "plastic" }
 
-    // 3. Build features object
-    const features = {
-      path:      `/uploads/${req.file.filename}`,
-      sizeKB:    parseFloat((stats.size / 1024).toFixed(1)),
-      width:     metadata.width,
-      height:    metadata.height,
-      format:    metadata.format,
-      label      // from Flask
-    };
+    // 4. Pull back the Python‐computed features + auto‐label
+    //    Expected shape: { success: true, label: "pleine", features: { filename, width, height, size_kb, avg_r, avg_g, avg_b, ground_ratio } }
+    const { label: pythonLabel, features: pyFeat } = await flaskResp.json();
 
-    // 4. Insert into Postgres
+    // 5. Insert into Postgres just the columns we have
     const insertSQL = `
       INSERT INTO public.image_features
-        (path, file_size_kb, width, height, format, label)
+        (path, file_size_kb, width, height, mean_r, mean_g, mean_b)
       VALUES
-        ($1, $2, $3, $4, $5, $6)
+        ($1, $2, $3, $4, $5, $6, $7)
     `;
     const params = [
-      features.path,
-      features.sizeKB,
-      features.width,
-      features.height,
-      features.format,
-      features.label
+      localPath,        // maps to `path`
+      Math.round(pyFeat.size_kb),  // file_size_kb  (integer)
+      pyFeat.width,     // width
+      pyFeat.height,    // height
+      pyFeat.avg_r,     // mean_r
+      pyFeat.avg_g,     // mean_g
+      pyFeat.avg_b      // mean_b
     ];
     await pool.query(insertSQL, params);
 
-    // 5. Send response
+    // 6. Send back both the URL and everything from Python
     res.json({
-      success:  true,
-      imageUrl: features.path,
-      features
+      success:     true,
+      imageUrl:    localPath,
+      pythonLabel,          // "pleine" or "vide"
+      pythonFeatures: pyFeat // { filename, width, height, size_kb, avg_r, avg_g, avg_b, ground_ratio }
     });
 
   } catch (err) {
-    console.error(err);
-    res.status(502).json({ success: false, error: 'Upload, classification, or database insert failed' });
+    console.error('[/upload] error:', err);
+    res.status(502).json({ success: false, error: 'Upload, classification, or DB insert failed' });
   }
 });
+
 
 app.listen(PORT, () =>
   console.log(`Server running on http://localhost:${PORT}`)
