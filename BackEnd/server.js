@@ -15,7 +15,18 @@ const FRONTEND_DIR = path.join(__dirname, '..', 'FrontEnd');
 const UPLOADS_DIR  = path.join(__dirname, 'uploads');
 
 // Postgres pool (will pick up PGHOST, PGUSER, PGPASSWORD, PGDATABASE, PGPORT)
-const pool = new Pool();
+
+const pool = new Pool({
+  // you can omit these if you already have the PG* env-vars set
+  host:     process.env.PGHOST,   
+  port:     Number(process.env.PGPORT),
+  user:     process.env.PGUSER,
+  password: process.env.PGPASSWORD,
+  database: process.env.PGDATABASE,
+
+  // Railway Postgres requires SSL/TLS
+  ssl: { rejectUnauthorized: false }
+});
 
 // Ensure uploads folder exists
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
