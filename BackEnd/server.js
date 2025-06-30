@@ -28,7 +28,7 @@ const pool = new Pool({
 
 // ── CONFIG ────────────────────────────────────────────────────────
 const FLASK_URL    = `http://${process.env.FLASK_HOST || 'localhost'}:${process.env.FLASK_PORT || '5000'}`;
-const PORT         = process.env.PORT || 3000;
+const PORT         = 3000;
 const FRONTEND_DIR = path.join(__dirname, '..', 'FrontEnd');
 const UPLOADS_DIR  = path.join(__dirname, 'uploads');
 
