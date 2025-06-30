@@ -11,14 +11,14 @@ const { Pool } = require('pg');            // npm i pg
 
 
 console.log('❯ HOST       =', process.env.HOST);
-console.log('❯ PORT       =', process.env.PORT);
+console.log('❯ PGPORT       =', process.env.PORT);
 console.log('❯ USER       =', process.env.USER);
 console.log('❯ PASSWORD   =', process.env.PASSWORD);
 console.log('❯ DATABASE   =', process.env.DATABASE);
 
 const pool = new Pool({
   host:     process.env.HOST,
-  port:     process.env.PORT,
+  port:     process.env.PGPORT,
   user:     process.env.USER,
   password: process.env.PASSWORD,
   database: process.env.DATABASE,
