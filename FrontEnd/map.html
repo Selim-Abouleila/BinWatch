@@ -48,12 +48,12 @@
 
     <!-- Formulaire d'ajout d'adresse -->
     <div class="mb-4">
-        <form id="addressForm" class="row g-3">
+        <form id="cityForm" class="row g-3">
             <div class="col-md-9">
-                <input type="text" class="form-control" id="addressInput" placeholder="Ex : 12 allée du Maréchal Leclerc, Toulouse" required>
+                <input type="text" class="form-control" id="cityInput" placeholder="Ex : Paris" required>
             </div>
             <div class="col-md-3 d-grid">
-                <button type="submit" class="btn btn-success">Ajouter l'adresse</button>
+                <button type="submit" class="btn btn-success">Rechercher la ville</button>
             </div>
         </form>
     </div>
@@ -69,16 +69,16 @@
 
 <!-- Scripts -->
 <script>
-    // Initialisation de la carte
+    // Initialize the map
     const map = L.map('map').setView([46.603354, 1.888334], 6);
 
-    // Fond OpenStreetMap
+    // OpenStreetMap layer
     L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap',
         maxZoom: 19
     }).addTo(map);
 
-    // Icône verte personnalisée
+    // Custom green icon
     const greenIcon = L.icon({
         iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
         iconSize: [30, 30],
@@ -86,14 +86,15 @@
         popupAnchor: [0, -30]
     });
 
-    // Liste initiale d'adresses
-    const addresses = [
-    ];
-
-    // Fonction de géocodage
+    // Geocode and add marker function
     function geocodeAndAdd(address, label = "Localisation signalée") {
         fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json`)
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error(`Erreur serveur: ${res.status}`);
+                }
+                return res.json();
+            })
             .then(data => {
                 if (data.length > 0) {
                     const lat = parseFloat(data[0].lat);
@@ -102,23 +103,51 @@
                         .addTo(map)
                         .bindPopup(`<strong>${label}</strong><br>${address}`);
                 } else {
-                    alert("Adresse non trouvée : " + address);
+                    console.warn("Adresse non trouvée : " + address);
                 }
             })
-            .catch(() => alert("Erreur lors du géocodage."));
+            .catch(err => {
+                console.error("Erreur lors du géocodage : ", err.message);
+                alert("Impossible de géocoder l'adresse. Veuillez réessayer plus tard.");
+            });
     }
 
-    // Ajouter les adresses au démarrage
-    addresses.forEach(loc => geocodeAndAdd(loc.address, loc.label));
+    // Load addresses from sessionStorage
+    window.addEventListener('load', () => {
+        const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
+        history.forEach(({ location }) => {
+            if (location) {
+                geocodeAndAdd(location, "Localisation signalée");
+            }
+        });
+    });
 
-    // Gestion du formulaire
-    document.getElementById('addressForm').addEventListener('submit', function (e) {
+    document.getElementById('cityForm').addEventListener('submit', function (e) {
         e.preventDefault();
-        const addressInput = document.getElementById('addressInput');
-        const address = addressInput.value.trim();
-        if (address !== '') {
-            geocodeAndAdd(address);
-            addressInput.value = '';
+        const cityInput = document.getElementById('cityInput');
+        const city = cityInput.value.trim();
+        if (city !== '') {
+            fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json`)
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error(`Erreur serveur: ${res.status}`);
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    if (data.length > 0) {
+                        const lat = parseFloat(data[0].lat);
+                        const lng = parseFloat(data[0].lon);
+                        map.setView([lat, lng], 12); // Zoom to the city
+                    } else {
+                        alert("Ville non trouvée. Veuillez réessayer.");
+                    }
+                })
+                .catch(err => {
+                    console.error("Erreur lors de la recherche de la ville : ", err.message);
+                    alert("Impossible de rechercher la ville. Veuillez réessayer plus tard.");
+                });
+            cityInput.value = '';
         }
     });
 </script>
