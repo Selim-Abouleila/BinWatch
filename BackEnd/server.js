@@ -1,3 +1,5 @@
+require('dotenv').config();   // ← make sure this is the very first line
+
 // server.js ---------------------------------------------------------
 const express  = require('express');
 const multer   = require('multer');
@@ -14,8 +16,6 @@ const PORT         = process.env.PORT || 3000;
 const FRONTEND_DIR = path.join(__dirname, '..', 'FrontEnd');
 const UPLOADS_DIR  = path.join(__dirname, 'uploads');
 
-
-require('dotenv').config();   // ← make sure this is the very first line
 
 console.log('❯ DATABASE_URL=', process.env.DATABASE_URL);
 
