@@ -10,19 +10,12 @@ const FormData = require('form-data');     // npm i form-data
 const { Pool } = require('pg');            // npm i pg
 
 
-console.log('❯ HOST       =', process.env.HOST);
-console.log('❯ PGPORT       =', process.env.PORT);
-console.log('❯ USER       =', process.env.USER);
-console.log('❯ PASSWORD   =', process.env.PASSWORD);
-console.log('❯ DATABASE   =', process.env.DATABASE);
+console.log('❯ DATABASE_URL       =', process.env.DATABASE_URL);
+
 
 const pool = new Pool({
-  host:     process.env.HOST,
-  port:     process.env.PGPORT,
-  user:     process.env.USER,
-  password: process.env.PASSWORD,
-  database: process.env.DATABASE,
-  ssl:      { rejectUnauthorized: false }
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
 
