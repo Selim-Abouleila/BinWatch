@@ -48,46 +48,94 @@ app.get('/', (req, res) =>
 // Route: upload → local metadata → call Flask → respond
 app.post('/upload', upload.single('image'), async (req, res) => {
   try {
-    /* ---------- 1. Local feature extraction ---------------------- */
+    // Ensure file was uploaded
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+
+    // 1. Local metadata extraction
     const imagePath = path.join(UPLOADS_DIR, req.file.filename);
     const metadata  = await sharp(imagePath).metadata();
     const stats     = fs.statSync(imagePath);
+    const fileSizeKB = Math.round(stats.size / 1024);
 
-    /* ---------- 2. Send image to Flask --------------------------- */
-    const form = new FormData();
-    form.append('image', fs.createReadStream(imagePath));
+    // 2. Send to Flask if needed...
+    // (Omitted for this test)
 
-    const flaskResp = await fetch(`${FLASK_URL}/classify`, {
-      method: 'POST',
-      body:   form,
-      headers: form.getHeaders(),   // critical for multipart/form-data
-      timeout: 30000                 // ms – guards against hung Flask
-    });
+    // 3. Hard-coded INSERT command (for testing)
+    const testSql = `
+      INSERT INTO public.image_features (
+        path,
+        file_size_kb,
+        width,
+        height,
+        mean_r,
+        mean_g,
+        mean_b,
+        luminance,
+        contrast_rgb,
+        contrast_gray,
+        dark_pixel_ratio,
+        entropy,
+        std_r,
+        std_g,
+        std_b,
+        median_r,
+        median_g,
+        median_b,
+        min_r,
+        min_g,
+        min_b,
+        max_r,
+        max_g,
+        max_b,
+        hist_r,
+        hist_g,
+        hist_b,
+        hist_luminance,
+        edges
+      ) VALUES (
+        '/uploads/${req.file.filename}',
+        ${fileSizeKB},
+        ${metadata.width},
+        ${metadata.height},
+        123.5,
+        110.2,
+        98.7,
+        115.4,
+        20.3,
+        15.1,
+        0.12,
+        5.6,
+        25.4,
+        22.1,
+        18.7,
+        120.0,
+        100.0,
+        90.0,
+        0.0,
+        0.0,
+        0.0,
+        255.0,
+        240.0,
+        230.0,
+        ARRAY[0.1, 0.2, 0.3],
+        ARRAY[0.2, 0.3, 0.4],
+        ARRAY[0.15, 0.25, 0.35],
+        ARRAY[0.05, 0.1, 0.15],
+        ARRAY[1, 0, 1, 0, 1]
+      );
+    `;
 
-    if (!flaskResp.ok) {
-      throw new Error(`Flask responded ${flaskResp.status}`);
-    }
-    const { label } = await flaskResp.json();   // e.g. { label: "plastic" }
+    // Execute the raw SQL
+    const { rows } = await pool.query(testSql);
+    const newId = rows[0].id;
 
-    /* ---------- 3. Merge results & reply ------------------------- */
-    const features = {
-      filename: req.file.filename,
-      sizeKB:   (stats.size / 1024).toFixed(1),
-      width:    metadata.width,
-      height:   metadata.height,
-      format:   metadata.format,
-      label     // from Flask
-    };
-
-    res.json({
-      success:  true,
-      imageUrl: `/uploads/${req.file.filename}`,
-      features
-    });
-
-  } catch (err) {
-    console.error(err);
-    res.status(502).json({ success: false, error: 'Upload or classify failed' });
+    // 4. Respond
+    return res.status(201).json({ success: true, id: newId });
+  } catch (error) {
+    console.error('Test insert failed:', error);
+    return res.status(500).json({ success: false, error: 'Test insert failed' });
   }
 });
 
