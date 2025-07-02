@@ -21,7 +21,7 @@ const pool = new Pool({
 
 // ── CONFIG ────────────────────────────────────────────────────────
 const FLASK_URL    = `http://${process.env.FLASK_HOST || 'localhost'}:${process.env.FLASK_PORT || '5000'}`;
-const PORT         = 8080;
+const PORT = process.env.PORT || 3000;
 const FRONTEND_DIR = path.join(__dirname, '..', 'FrontEnd');
 const UPLOADS_DIR  = path.join(__dirname, 'uploads');
 
@@ -53,17 +53,18 @@ app.get('/', (req, res) =>
 
 // Route: upload → local metadata → call Flask → insert into Postgres → respond
 app.post('/upload', upload.single('image'), async (req, res) => {
+  // 1. Ensure we have a file
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'No file uploaded' });
+  }
+
+  // 2. Build the local URL & filepath
+  const localPath = `/uploads/${req.file.filename}`;
+  const imagePath = path.join(UPLOADS_DIR, req.file.filename);
+
+  let pythonLabel, pyFeat;
+  // 3. Classification + feature extraction
   try {
-    // 1. Ensure we have a file
-    if (!req.file) {
-      return res.status(400).json({ success: false, error: 'No file uploaded' });
-    }
-
-    // 2. Build the local URL & filepath
-    const localPath = `/uploads/${req.file.filename}`;
-    const imagePath = path.join(UPLOADS_DIR, req.file.filename);
-
-    // 3. Send the image on to Flask for all the heavy lifting
     const form = new FormData();
     form.append('image', fs.createReadStream(imagePath));
 
@@ -77,40 +78,47 @@ app.post('/upload', upload.single('image'), async (req, res) => {
       throw new Error(`Flask responded ${flaskResp.status}`);
     }
 
-    // 4. Pull back the Python‐computed features + auto‐label
-    //    Expected shape: { success: true, label: "pleine", features: { filename, width, height, size_kb, avg_r, avg_g, avg_b, ground_ratio } }
-    const { label: pythonLabel, features: pyFeat } = await flaskResp.json();
+    const json = await flaskResp.json();
+    pythonLabel = json.label;
+    pyFeat      = json.features;
+  } catch (err) {
+    console.error('[/upload] classification error:', err);
+    return res.status(502).json({
+      success: false,
+      error: 'Image classification failed'
+    });
+  }
 
-    // 5. Insert into Postgres just the columns we have
+  // 4. (Optional) Insert into Postgres; errors here don't block the response
+  try {
     const insertSQL = `
       INSERT INTO public.image_features
         (path, file_size_kb, width, height, mean_r, mean_g, mean_b)
-      VALUES
-        ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
     `;
     const params = [
-      localPath,        // maps to `path`
-      Math.round(pyFeat.size_kb),  // file_size_kb  (integer)
-      pyFeat.width,     // width
-      pyFeat.height,    // height
-      pyFeat.avg_r,     // mean_r
-      pyFeat.avg_g,     // mean_g
-      pyFeat.avg_b      // mean_b
+      localPath,
+      Math.round(pyFeat.size_kb),
+      pyFeat.width,
+      pyFeat.height,
+      pyFeat.avg_r,
+      pyFeat.avg_g,
+      pyFeat.avg_b
     ];
     await pool.query(insertSQL, params);
-
-    // 6. Send back both the URL and everything from Python
-    res.json({
-  success:  true,
-  imageUrl: localPath,      // unchanged
-  label:    pythonLabel,    // rename from pythonLabel → label
-  features: pyFeat          // rename from pythonFeatures → features
-});
-
-  } catch (err) {
-    console.error('[/upload] error:', err);
-    res.status(502).json({ success: false, error: 'Upload, classification, or DB insert failed' });
+  } catch (dbErr) {
+    // In dev/local you can ignore DB errors; in prod you might want to alert
+    console.error('[/upload] DB insert error:', dbErr);
+    // optionally: if (process.env.NODE_ENV === 'production') { /* notify Sentry, etc */ }
   }
+
+  // 5. Send back both the URL and everything from Python
+  res.json({
+    success:  true,
+    imageUrl: localPath,
+    label:    pythonLabel,
+    features: pyFeat
+  });
 });
 
 
