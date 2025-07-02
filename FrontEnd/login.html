@@ -74,6 +74,8 @@
         const password = document.getElementById('password').value;
 
         if (email === 'admin@gmail.com' && password === 'admin') {
+            sessionStorage.setItem('city', 'Lyon');
+
             window.location.href = 'dashboard.html';
         } else {
             alert('Identifiants incorrects');
