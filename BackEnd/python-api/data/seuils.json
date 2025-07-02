@@ -1,0 +1,7 @@
+{
+  "taille_ko": 150,
+  "ground_ratio": 0.05,
+  "entropy": 4.0,
+  "contrast": 20,
+  "dark_pixel_ratio": 0.1
+}
