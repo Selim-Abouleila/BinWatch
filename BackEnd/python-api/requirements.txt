@@ -3,3 +3,4 @@ Pillow
 opencv-python-headless
 numpy
 gunicorn
+scikit-learn
