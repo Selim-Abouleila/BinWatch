@@ -8,10 +8,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        #map {
-            height: 500px;
-            width: 100%;
-        }
+        #map{height:500px;width:100%}
     </style>
 </head>
 
@@ -20,31 +17,37 @@
 <!-- Navbar -->
 <nav class="navbar navbar-expand-lg bg-success shadow sticky-top">
     <div class="container">
-        <a class="navbar-brand d-flex align-items-center text-white fw-bold fs-4" href="index.html" style="padding-top: 0.4rem; padding-bottom: 0.4rem;">
-            BinWatch
-        </a>
+        <a class="navbar-brand d-flex align-items-center text-white fw-bold fs-4" href="index.html"
+           style="padding-top:.4rem;padding-bottom:.4rem;">BinWatch</a>
+
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
             <span class="navbar-toggler-icon"></span>
         </button>
+
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item"><a class="nav-link text-white" href="index.html">Accueil</a></li>
                 <li class="nav-item"><a class="nav-link text-white" href="analyse.html">Analyse</a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="tri.html">Recherche avancée</a></li>
                 <li class="nav-item"><a class="nav-link text-white" href="map.html">Carte</a></li>
                 <li class="nav-item"><a class="nav-link text-white" href="about.html">À propos</a></li>
+
+                <!-- Dashboard (caché tant que non connecté) -->
+                <li class="nav-item d-none" id="dashboardNav">
+                    <a class="nav-link text-white" href="dashboard.html">Dashboard</a>
+                </li>
             </ul>
         </div>
-        <a class="btn btn-outline-light" href="login.html">Connexion</a>
 
+        <!-- Bouton compte -->
+        <a id="accountBtn" class="btn btn-outline-light" href="login.html">Connexion</a>
     </div>
 </nav>
 
 <!-- Content -->
 <div class="container py-5">
     <h1 class="text-success mb-4">Carte interactive</h1>
-    <p>
-        Visualisez les zones à risque de débordement en temps réel à partir d'adresses collectées par TrashAI.
-    </p>
+    <p>Visualisez les zones à risque de débordement en temps réel à partir d'adresses collectées par BinWatch.</p>
 
     <!-- Formulaire d'ajout d'adresse -->
     <div class="mb-4">
@@ -62,96 +65,107 @@
     <div id="map" class="rounded shadow-sm"></div>
 </div>
 
-<!-- Footer -->
 <footer class="bg-success text-white py-4 text-center">
     &copy; 2025 BinWatch – Tous droits réservés.
 </footer>
 
-<!-- Scripts -->
+<!-- JS libs -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Connexion / Déconnexion + Dashboard -->
 <script>
-    // Initialize the map
+    (function(){
+        const btn          = document.getElementById('accountBtn');
+        const dashboardNav = document.getElementById('dashboardNav');
+        const token        = localStorage.getItem('token');
+
+        if(token){
+            btn.textContent = 'Déconnexion';
+            btn.href        = '#';
+            dashboardNav.classList.remove('d-none');
+
+            btn.addEventListener('click', e=>{
+                e.preventDefault();
+                localStorage.removeItem('token');
+                location.reload();
+            });
+        }else{
+            btn.textContent = 'Connexion';
+            btn.href        = 'login.html';
+            dashboardNav.classList.add('d-none');
+        }
+    })();
+</script>
+
+<!-- Leaflet & geocoding logic -->
+<script>
+    // Initialise la carte
     const map = L.map('map').setView([46.603354, 1.888334], 6);
 
     // OpenStreetMap layer
     L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap',
-        maxZoom: 19
+        attribution:'&copy; OpenStreetMap',
+        maxZoom:19
     }).addTo(map);
 
-    // Custom green icon
+    // Custom icon
     const greenIcon = L.icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
-        iconSize: [30, 30],
-        iconAnchor: [15, 30],
-        popupAnchor: [0, -30]
+        iconUrl:'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+        iconSize:[30,30],
+        iconAnchor:[15,30],
+        popupAnchor:[0,-30]
     });
 
-    // Geocode and add marker function
-    function geocodeAndAdd(address, label = "Localisation signalée") {
+    function geocodeAndAdd(address,label='Localisation signalée'){
         fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json`)
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error(`Erreur serveur: ${res.status}`);
-                }
-                return res.json();
+            .then(r=>{
+                if(!r.ok) throw new Error(r.status);
+                return r.json();
             })
-            .then(data => {
-                if (data.length > 0) {
-                    const lat = parseFloat(data[0].lat);
-                    const lng = parseFloat(data[0].lon);
-                    L.marker([lat, lng], { icon: greenIcon })
+            .then(data=>{
+                if(data.length){
+                    const lat = +data[0].lat, lng = +data[0].lon;
+                    L.marker([lat,lng],{icon:greenIcon})
                         .addTo(map)
                         .bindPopup(`<strong>${label}</strong><br>${address}`);
-                } else {
-                    console.warn("Adresse non trouvée : " + address);
+                }else{
+                    console.warn('Adresse non trouvée :',address);
                 }
             })
-            .catch(err => {
-                console.error("Erreur lors du géocodage : ", err.message);
-                alert("Impossible de géocoder l'adresse. Veuillez réessayer plus tard.");
+            .catch(err=>{
+                console.error('Erreur géocodage :',err);
+                alert('Impossible de géocoder l’adresse.');
             });
     }
 
-    // Load addresses from sessionStorage
-    window.addEventListener('load', () => {
-        const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
-        history.forEach(({ location }) => {
-            if (location) {
-                geocodeAndAdd(location, "Localisation signalée");
-            }
+    // Charge l’historique depuis sessionStorage
+    window.addEventListener('load',()=>{
+        const history = JSON.parse(sessionStorage.getItem('analysisHistory')||'[]');
+        history.forEach(({location})=>{
+            if(location) geocodeAndAdd(location);
         });
     });
 
-    document.getElementById('cityForm').addEventListener('submit', function (e) {
+    // Recherche de ville
+    document.getElementById('cityForm').addEventListener('submit',e=>{
         e.preventDefault();
-        const cityInput = document.getElementById('cityInput');
-        const city = cityInput.value.trim();
-        if (city !== '') {
-            fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json`)
-                .then(res => {
-                    if (!res.ok) {
-                        throw new Error(`Erreur serveur: ${res.status}`);
-                    }
-                    return res.json();
-                })
-                .then(data => {
-                    if (data.length > 0) {
-                        const lat = parseFloat(data[0].lat);
-                        const lng = parseFloat(data[0].lon);
-                        map.setView([lat, lng], 12); // Zoom to the city
-                    } else {
-                        alert("Ville non trouvée. Veuillez réessayer.");
-                    }
-                })
-                .catch(err => {
-                    console.error("Erreur lors de la recherche de la ville : ", err.message);
-                    alert("Impossible de rechercher la ville. Veuillez réessayer plus tard.");
-                });
-            cityInput.value = '';
-        }
+        const city = document.getElementById('cityInput').value.trim();
+        if(!city) return;
+        fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json`)
+            .then(r=>{
+                if(!r.ok) throw new Error(r.status);
+                return r.json();
+            })
+            .then(data=>{
+                if(data.length){
+                    map.setView([+data[0].lat,+data[0].lon],12);
+                }else{
+                    alert('Ville non trouvée.');
+                }
+            })
+            .catch(()=>alert('Erreur de recherche.'));
+        document.getElementById('cityInput').value='';
     });
 </script>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
