@@ -75,6 +75,9 @@
     <div class="content flex-grow-1">
         <h1 class="mb-3">Maire de : <span id="city"></span></h1>
         <h2 class="mb-3">Statistiques</h2>
+        <p id="todayTemperature" class="mb-3 text-muted small">
+            <!-- la valeur sera remplie par JS -->
+        </p>
         <div class="mb-3">
             <button id="addBinsButton" class="btn btn-success">Ajouter 10 poubelles à Lyon</button>
         </div>
@@ -140,6 +143,7 @@
 
 <script>
     let analysisHistory = [];
+    let currentCity     = '';
 
     async function getCityCoordinates(city) {
         try {
@@ -196,7 +200,7 @@
     }
 
     async function initializeHeatmap() {
-        const city = sessionStorage.getItem('city') || 'Paris'; // Default to Paris
+        const city = currentCity || 'Paris'; // Default to Paris
         const coordinates = await getCityCoordinates(city);
 
         if (!coordinates || coordinates.some(coord => isNaN(coord))) {
@@ -345,7 +349,9 @@
         if (!res.ok) throw new Error('/me/city failed');
         const { ville } = await res.json();
         document.getElementById('city').textContent = ville || 'Ville inconnue';
-        return ville || '';
+        currentCity = ville || '';
+        document.getElementById('city').textContent = currentCity || 'Ville inconnue';
+        return currentCity;
     }
 
     /* charge l’historique limité à cette ville */
@@ -457,7 +463,7 @@
 
     // Function to fetch and display today's temperature
     async function displayTodayTemperature() {
-        const city = sessionStorage.getItem('city') || 'Paris';
+        const city = currentCity || 'Paris';
         const coordinates = await getCityCoordinates(city);
 
         if (!coordinates || coordinates.some(coord => isNaN(coord))) {
@@ -529,7 +535,7 @@
         const startDate = document.getElementById('startDate').value;
         const endDate = document.getElementById('endDate').value;
 
-        const city = sessionStorage.getItem('city') || 'Paris'; // Default to Paris
+        const city = currentCity || 'Paris'; // Default to Paris
         const coordinates = await getCityCoordinates(city);
 
         if (!coordinates || coordinates.some(coord => isNaN(coord))) {
@@ -597,11 +603,15 @@
             });
         }
 
-        sessionStorage.setItem('analysisHistory', JSON.stringify(history));
+        analysisHistory = history;
+        updateProcessingBinsTable();
+        updateResolvedBinsCount();
+        updateBinsPieChart();
+        updateBinsChart(analysisHistory);
         alert('50 poubelles avec des localisations, annotations et dates aléatoires ajoutées à Lyon.');
     });
     function updateProcessingBinsTable() {
-        const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
+        const history = analysisHistory;
         const processingBins = history.filter(bin => bin.status === "processing");
 
         const tableBody = document.getElementById("processingBinsTable");
@@ -622,16 +632,18 @@
     }
 
     function resolveBin(index) {
-        const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
-        const processingBins = history.filter(bin => bin.status === "processing");
+        // 1. trouver la poubelle “processing” à l’index donné
+        const processingBins = analysisHistory.filter(b => b.status === 'processing');
+        const bin = processingBins[index];
+        if (!bin) return;
 
-        const binToResolve = processingBins[index];
-        const binIndex = history.findIndex(bin => bin === binToResolve);
-        if (binIndex !== -1) {
-            history[binIndex].status = "resolved";
-            sessionStorage.setItem("analysisHistory", JSON.stringify(history));
-            updateProcessingBinsTable();
-        }
+        // 2. la marquer “resolved”
+        bin.status = 'resolved';
+
+        // 3. mettre à jour l’interface
+        updateProcessingBinsTable();
+        updateResolvedBinsCount();
+        updateBinsPieChart();
     }
 
     // On page load, initialize the processing bins table
@@ -639,7 +651,7 @@
         updateProcessingBinsTable();
     });
     function updateResolvedBinsCount() {
-        const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
+        const history = analysisHistory;
         const resolvedBinsCount = history.filter(bin => bin.status === "resolved").length;
         document.getElementById("resolvedBinsCount").textContent = resolvedBinsCount;
     }
@@ -647,24 +659,11 @@
     // Call this function on page load and after resolving a bin
     window.addEventListener("load", updateResolvedBinsCount);
 
-    function resolveBin(index) {
-        const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
-        const processingBins = history.filter(bin => bin.status === "processing");
-
-        const binToResolve = processingBins[index];
-        const binIndex = history.findIndex(bin => bin === binToResolve);
-        if (binIndex !== -1) {
-            history[binIndex].status = "resolved";
-            sessionStorage.setItem("analysisHistory", JSON.stringify(history));
-            updateProcessingBinsTable();
-            updateResolvedBinsCount(); // Update the count after resolving
-        }
-    }
 
     let binsPieChartInstance = null;
 
     function updateBinsPieChart() {
-        const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
+        const history = analysisHistory;
         const pleineCount = history.filter(bin => bin.annotation === "Pleine").length;
         const videCount = history.filter(bin => bin.annotation === "Vide").length;
         const total = pleineCount + videCount;
@@ -700,7 +699,7 @@
     }
 
     // Call this function on page load
-    window.addEventListener("load", updateBinsPieChart);
+    
 
 </script>
 </body>
