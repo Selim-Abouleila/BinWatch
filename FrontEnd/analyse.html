@@ -75,4 +75,144 @@
   <!-- History table -->
   <div class="mt-5">
     <h5>Historique des images téléversées</h5>
-    <table cl
+    <table class="table table-bordered table-hover">
+      <thead class="table-success">
+      <tr>
+        <th>Miniature</th><th>Date</th><th>Annotation</th><th>Localisation</th><th>Chemin</th><th>Résultat</th>
+      </tr>
+      </thead>
+      <tbody id="historyTable"></tbody>
+    </table>
+  </div>
+</div>
+
+<footer class="bg-success text-white py-4 text-center">
+  &copy; 2025 BinWatch – Tous droits réservés.
+</footer>
+
+<!-- Bootstrap bundle -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+  /* ----------- compte (login/logout) ----------- */
+  (function(){
+    const btn   = document.getElementById('accountBtn');
+    const token = localStorage.getItem('token');
+
+    if(token){
+      btn.textContent = 'Déconnexion';
+      btn.href        = '#';
+      btn.addEventListener('click', e=>{
+        e.preventDefault();
+        localStorage.removeItem('token');
+        location.reload();
+      });
+    }else{
+      btn.textContent = 'Connexion';
+      btn.href        = 'login.html';
+    }
+  })();
+
+  /* ----------- analyse logic ----------- */
+  const imageInput       = document.getElementById('imageInput');
+  const preview          = document.getElementById('preview');
+  const imageContainer   = document.getElementById('imageContainer');
+  const detailsContainer = document.getElementById('detailsContainer');
+  const annotationField  = document.getElementById('annotationField');
+  const analyzeButton    = document.getElementById('analyzeButton');
+  const locationField    = document.getElementById('locationField');
+  const dateField        = document.getElementById('dateField');
+  const historyTable     = document.getElementById('historyTable');
+
+  imageInput.addEventListener('change',()=>{
+    const file = imageInput.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = e=>{
+      preview.src = e.target.result;
+      imageContainer.classList.remove('d-none');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  function showQuestionnaire(annotation){
+    annotationField.value = annotation;
+    detailsContainer.classList.remove('d-none');
+    analyzeButton.classList.remove('d-none');
+  }
+  document.getElementById('btnPleine').onclick = ()=>showQuestionnaire('Pleine');
+  document.getElementById('btnVide'  ).onclick = ()=>showQuestionnaire('Vide');
+
+  function updateHistoryTable(list){
+    historyTable.innerHTML = '';
+    list.forEach(({annotation,location,date,imagePath,label})=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+      <td><img src="${imagePath}" class="thumbnail img-thumbnail"></td>
+      <td>${date}</td>
+      <td>${annotation}</td>
+      <td>${location}</td>
+      <td>${imagePath}</td>
+      <td>${label}</td>`;
+      historyTable.appendChild(tr);
+    });
+  }
+
+  document.getElementById('uploadForm').addEventListener('submit', async e=>{
+    e.preventDefault();
+    if(!imageInput.files.length) return;
+
+    const formData = new FormData();
+    formData.append('image', imageInput.files[0]);
+    formData.append('annotation', annotationField.value);
+    formData.append('location',   locationField.value);
+    formData.append('date',       dateField.value);
+
+    const headers = {};
+    const token   = localStorage.getItem('token');
+    if(token) headers['Authorization'] = `Bearer ${token}`;
+
+    try{
+      const res  = await fetch('/upload',{method:'POST',body:formData,headers});
+      if(!res.ok) throw new Error('Erreur serveur : '+res.status);
+      const data = await res.json();
+
+      const historyRow = {
+        annotation: annotationField.value,
+        location:   locationField.value,
+        date:       dateField.value,
+        imagePath:  data.imageUrl,
+        label:      data.label
+      };
+      updateHistoryTable([historyRow, ...JSON.parse(sessionStorage.getItem('analysisHistory')||'[]')]);
+    }catch(err){
+      alert(err.message || 'Erreur inconnue');
+    }
+  });
+
+  /* ----------- charger l’historique ----------- */
+  window.addEventListener('load',async()=>{
+    const headers = {};
+    const token   = localStorage.getItem('token');
+    if(token) headers['Authorization'] = `Bearer ${token}`;
+
+    try{
+      const res = await fetch('/history',{headers});
+      if(!res.ok) throw new Error('Impossible de charger l\'historique');
+      const data = await res.json(); // [{path,created_at,...}]
+      const list = data.map(d=>({
+        annotation:d.annotation||'–',
+        location:d.location||'–',
+        date:d.created_at?d.created_at.split('T')[0]:'–',
+        imagePath:d.path,
+        label:d.label||'–'
+      }));
+      updateHistoryTable(list);
+    }catch(err){
+      console.error(err);
+      historyTable.innerHTML = '<tr><td colspan=\"6\">Erreur de chargement</td></tr>';
+    }
+  });
+</script>
+</body>
+</html>
