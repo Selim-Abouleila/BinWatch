@@ -120,8 +120,45 @@ app.post('/upload', upload.single('image'), async (req, res) => {
     features: pyFeat
   });
 });
+// Proxy GET /api/seuils → Flask
+app.get('/api/seuils', async (req, res) => {
+  try {
+    const response = await fetch(`${FLASK_URL}/api/seuils`);
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error('[/api/seuils] GET error:', err);
+    res.status(500).json({ error: 'Erreur serveur Flask' });
+  }
+});
 
-
+// Proxy POST /api/seuils → Flask
+app.post('/api/seuils', async (req, res) => {
+  try {
+    const response = await fetch(`${FLASK_URL}/api/seuils`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body)
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error('[/api/seuils] POST error:', err);
+    res.status(500).json({ error: 'Erreur serveur Flask' });
+  }
+});
+app.post('/api/seuils/reset', async (req, res) => {
+  try {
+    const response = await fetch(`${FLASK_URL}/api/seuils/reset`, {
+      method: 'POST'
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error('[/api/seuils/reset] POST error:', err);
+    res.status(500).json({ error: 'Erreur serveur Flask (reset)' });
+  }
+});
 app.listen(PORT, () =>
   console.log(`Server running on http://localhost:${PORT}`)
 );

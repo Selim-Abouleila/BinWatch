@@ -17,13 +17,14 @@ SEUIL_PATH = DATA_DIR / "seuils.json"
 app = Flask(__name__)
 
 # ➖➖➖ INIT SEUILS ➖➖➖
-SEUILS = {
-    "taille_ko": 250,
-    "ground_ratio": 0.08,
-    "entropy": 5.5,
-    "contrast": 30.0,
-    "dark_pixel_ratio": 0.2
+SEUILS_DEFAULTS = {
+    "taille_ko": 319.4,
+    "ground_ratio": 0.23,
+    "entropy": 5048.8,
+    "contrast": 75.33,
+    "dark_pixel_ratio": 0.31
 }
+SEUILS = SEUILS_DEFAULTS.copy()
 if SEUIL_PATH.exists():
     SEUILS.update(json.load(SEUIL_PATH.open()))
 
@@ -72,18 +73,21 @@ def plast_mask_ratio(arr_bgr: np.ndarray) -> float:
              cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5)))
     return mask.sum() / 255 / mask.size
 
-def auto_rule(feat: dict, arr_bgr: np.ndarray) -> str:
+def auto_rule(feat: dict, arr_bgr: np.ndarray, seuils=None) -> str:
+    if seuils is None:
+        seuils = SEUILS
+
     h = arr_bgr.shape[0]
-    ground_slice = arr_bgr[int(h*0.55): , :]
+    ground_slice = arr_bgr[int(h * 0.55):, :]
     gr = plast_mask_ratio(ground_slice)
     feat["ground_ratio"] = round(gr, 4)
 
     score = 0
-    if feat["size_kb"] > SEUILS["taille_ko"]: score += 1
-    if feat["ground_ratio"] > SEUILS["ground_ratio"]: score += 1
-    if feat["entropy"] > SEUILS["entropy"]: score += 1
-    if feat["contrast"] < SEUILS["contrast"]: score += 1
-    if feat["dark_pixel_ratio"] > SEUILS["dark_pixel_ratio"]: score += 1
+    if feat["size_kb"] > seuils["taille_ko"]: score += 1
+    if feat["ground_ratio"] > seuils["ground_ratio"]: score += 1
+    if feat["entropy"] > seuils["entropy"]: score += 1
+    if feat["contrast"] < seuils["contrast"]: score += 1
+    if feat["dark_pixel_ratio"] > seuils["dark_pixel_ratio"]: score += 1
 
     return "pleine" if score >= 3 else "vide"
 
@@ -98,11 +102,11 @@ def save_feature_record(feat):
 def reoptimise_thresholds():
     if not FEAT_PATH.exists(): return
     data = json.load(FEAT_PATH.open())
-    seuils_taille = [150, 200, 250, 300]
-    seuils_gr = [0.05, 0.08, 0.10, 0.12]
-    seuils_entropy = [4.0, 4.5, 5.0, 5.5, 6.0]
-    seuils_contrast = [20, 25, 30, 35, 40]
-    seuils_dark = [0.1, 0.15, 0.2, 0.25]
+    seuils_taille   = [200, 300, 400, 500]
+    seuils_gr       = [0.1, 0.2, 0.25, 0.3]
+    seuils_entropy  = [4000, 4500, 5000, 5500, 6000]
+    seuils_contrast = [40, 50, 60, 70, 80]
+    seuils_dark     = [0.2, 0.25, 0.3, 0.35, 0.4]
 
     best_score, best = 0, SEUILS
     for t in seuils_taille:
@@ -136,17 +140,16 @@ def reoptimise_thresholds():
     SEUILS.update(best)
 
 # ➖➖➖ COEUR ➖➖➖
-def process(stream: bytes, orig_name: str):
-    ts   = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
+def process(stream: bytes, orig_name: str, seuils=None):
+    ts = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
     name = f"{ts}_{orig_name}"
     path = IMG_DIR / name
     path.write_bytes(stream)
 
     pil, arr = load_resized(stream)
-    feat     = basic_features(arr, path.stat().st_size, name)
-    feat["label_auto"] = auto_rule(feat, arr)
+    feat = basic_features(arr, path.stat().st_size, name)
+    feat["label_auto"] = auto_rule(feat, arr, seuils)
     save_feature_record(feat)
-    reoptimise_thresholds()
     return name, feat
 
 # ➖➖➖ ROUTES ➖➖➖
@@ -162,13 +165,35 @@ def upload():
 def classify_endpoint():
     if "image" not in request.files:
         return jsonify(success=False, error="Aucun fichier"), 400
-    _, feat = process(request.files["image"].read(), "tmp.jpg")
+
+    seuils = request.form.get("seuils")
+    seuils = json.loads(seuils) if seuils else None
+
+    _, feat = process(request.files["image"].read(), "tmp.jpg", seuils)
     return jsonify(success=True, label=feat["label_auto"], features=feat)
 
 @app.route("/images/<path:fname>")
 def serve(fname):
     return send_from_directory(IMG_DIR, fname)
+@app.route("/api/seuils", methods=["GET"])
+def get_seuils():
+    return jsonify(SEUILS)
 
+@app.route("/api/seuils", methods=["POST"])
+def update_seuils():
+    data = request.get_json()
+    if not data:
+        return jsonify(success=False, error="Aucune donnée reçue"), 400
+
+    # Ne pas modifier SEUILS global, juste renvoyer les seuils reçus
+    return jsonify(success=True, seuils=data)
+
+@app.route("/api/seuils/reset", methods=["POST"])
+def reset_seuils():
+    SEUILS.clear()
+    SEUILS.update(SEUILS_DEFAULTS)
+    json.dump(SEUILS, SEUIL_PATH.open("w"), indent=2)
+    return jsonify(success=True, seuils=SEUILS)
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="::", port=port, debug=True)
