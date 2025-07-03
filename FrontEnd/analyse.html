@@ -28,7 +28,7 @@
       <ul class="navbar-nav ms-auto">
         <li class="nav-item"><a class="nav-link text-white" href="index.html">Accueil</a></li>
         <li class="nav-item"><a class="nav-link text-white" href="analyse.html">Analyse</a></li>
-        <li class="nav-item"><a class="nav-link text-white" href="tri.html">Recherche avancée</a></li>
+         <li class="nav-item"><a class="nav-link text-white" href="tri.html">Recherche avancée</a></li>
         <li class="nav-item"><a class="nav-link text-white" href="map.html">Carte</a></li>
         <li class="nav-item"><a class="nav-link text-white" href="about.html">À propos</a></li>
       </ul>
@@ -163,6 +163,10 @@
 
     const formData = new FormData();
     formData.append("image", imageInput.files[0]);
+  formData.append("annotation", annotationField.value);
+  formData.append("location", locationField.value);
+formData.append("date", dateField.value);
+
 
     try {
       const res  = await fetch("/upload", { method: "POST", body: formData });
@@ -183,12 +187,41 @@
     }
   });
 
-  // On load, rehydrate history
-  window.addEventListener("load", () => {
-    const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
-    history.sort((a, b) => new Date(b.date) - new Date(a.date));
-    updateHistoryTable(history);
-  });
+  // On load, fetch history from backend
+window.addEventListener("load", async () => {
+  try {
+    const res = await fetch("/history");
+    if (!res.ok) throw new Error("Impossible de charger l'historique");
+    const data = await res.json();
+
+    // Expected format: [{ path, created_at, annotation, location, label }]
+    const formatted = data.map(item => ({
+      annotation: item.annotation || "–",
+      location: item.location || "–",
+      date: item.created_at ? item.created_at.split('T')[0] : "–",
+      imagePath: item.path,
+      label: item.label || "–"
+    }));
+
+    updateHistoryTable(formatted);
+  } catch (err) {
+    console.error("Erreur lors du chargement de l'historique :", err);
+    historyTable.innerHTML = `<tr><td colspan="6">Erreur de chargement de l'historique</td></tr>`;
+  }
+});
+
+// Insérer dans l'historique complet avec annotation, localisation, etc.
+try {
+  const insertFullSQL = `
+    INSERT INTO public.image_history (path, created_at, annotation, path, label)
+    VALUES ($1, NOW(), $2, $3, $4)
+  `;
+  const fullParams = [localPath, req.body.annotation, req.body.location, pythonLabel];
+  await pool.query(insertFullSQL, fullParams);
+} catch (err) {
+  console.error("[/upload] Erreur insertion image_history :", err);
+}
+
 </script>
 </body>
 </html>

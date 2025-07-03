@@ -53,17 +53,16 @@ app.get('/', (req, res) =>
 
 // Route: upload → local metadata → call Flask → insert into Postgres → respond
 app.post('/upload', upload.single('image'), async (req, res) => {
-  // 1. Ensure we have a file
   if (!req.file) {
     return res.status(400).json({ success: false, error: 'No file uploaded' });
   }
 
-  // 2. Build the local URL & filepath
   const localPath = `/uploads/${req.file.filename}`;
   const imagePath = path.join(UPLOADS_DIR, req.file.filename);
+  const { annotation, location, date } = req.body;
 
   let pythonLabel, pyFeat;
-  // 3. Classification + feature extraction
+
   try {
     const form = new FormData();
     form.append('image', fs.createReadStream(imagePath));
@@ -74,6 +73,7 @@ app.post('/upload', upload.single('image'), async (req, res) => {
       headers: form.getHeaders(),
       timeout: 30000
     });
+
     if (!flaskResp.ok) {
       throw new Error(`Flask responded ${flaskResp.status}`);
     }
@@ -83,20 +83,18 @@ app.post('/upload', upload.single('image'), async (req, res) => {
     pyFeat      = json.features;
   } catch (err) {
     console.error('[/upload] classification error:', err);
-    return res.status(502).json({
-      success: false,
-      error: 'Image classification failed'
-    });
+    return res.status(502).json({ success: false, error: 'Image classification failed' });
   }
 
-  // 4. (Optional) Insert into Postgres; errors here don't block the response
   try {
-    const insertSQL = `
+    // 1. Insert image features
+    const insertImageSQL = `
       INSERT INTO public.image_features
         (path, file_size_kb, width, height, mean_r, mean_g, mean_b)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id
     `;
-    const params = [
+    const imageParams = [
       localPath,
       Math.round(pyFeat.size_kb),
       pyFeat.width,
@@ -105,20 +103,48 @@ app.post('/upload', upload.single('image'), async (req, res) => {
       pyFeat.avg_g,
       pyFeat.avg_b
     ];
-    await pool.query(insertSQL, params);
-  } catch (dbErr) {
-    // In dev/local you can ignore DB errors; in prod you might want to alert
-    console.error('[/upload] DB insert error:', dbErr);
-    // optionally: if (process.env.NODE_ENV === 'production') { /* notify Sentry, etc */ }
+    const imageResult = await pool.query(insertImageSQL, imageParams);
+    const imageId = imageResult.rows[0]?.id;
+
+    // 2. Insert into history
+    const insertHistorySQL = `
+      INSERT INTO public.image_history
+        (image_id, path, created_at, annotation, location, label)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `;
+    await pool.query(insertHistorySQL, [
+      imageId,
+      localPath,
+      date ? new Date(date) : new Date(),
+      annotation,
+      location,
+      pythonLabel
+    ]);
+  } catch (err) {
+    console.error("[/upload] DB insert error:", err);
   }
 
-  // 5. Send back both the URL and everything from Python
   res.json({
-    success:  true,
+    success: true,
     imageUrl: localPath,
-    label:    pythonLabel,
+    label: pythonLabel,
     features: pyFeat
   });
+});
+
+app.get('/history', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT h.path, h.created_at, h.annotation, h.location, h.label
+      FROM public.image_history h
+      ORDER BY h.created_at DESC
+      LIMIT 100
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("[/history] DB error:", err);
+    res.status(500).json({ success: false, error: 'Erreur de lecture de la base' });
+  }
 });
 
 
