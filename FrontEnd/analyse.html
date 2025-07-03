@@ -209,19 +209,6 @@ window.addEventListener("load", async () => {
     historyTable.innerHTML = `<tr><td colspan="6">Erreur de chargement de l'historique</td></tr>`;
   }
 });
-
-// Insérer dans l'historique complet avec annotation, localisation, etc.
-try {
-  const insertFullSQL = `
-    INSERT INTO public.image_history (path, created_at, annotation, path, label)
-    VALUES ($1, NOW(), $2, $3, $4)
-  `;
-  const fullParams = [localPath, req.body.annotation, req.body.location, pythonLabel];
-  await pool.query(insertFullSQL, fullParams);
-} catch (err) {
-  console.error("[/upload] Erreur insertion image_history :", err);
-}
-
 </script>
 </body>
 </html>
