@@ -139,9 +139,7 @@
 </div>
 
 <script>
-    document.getElementById('city').textContent = sessionStorage.getItem('city') || 'Ville inconnue';
-
-    const analysisHistory = JSON.parse(sessionStorage.getItem('analysisHistory')) || [];
+    let analysisHistory = [];
 
     async function getCityCoordinates(city) {
         try {
@@ -336,9 +334,48 @@
         await updateHeatmap(filteredData);
     });
 
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem('token');
+        return token ? { Authorization: `Bearer ${token}` } : {};
+    };
+
+    /* charge la ville de l’utilisateur connecté */
+    async function loadCity () {
+        const res   = await fetch('/me/city', { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error('/me/city failed');
+        const { ville } = await res.json();
+        document.getElementById('city').textContent = ville || 'Ville inconnue';
+        return ville || '';
+    }
+
+    /* charge l’historique limité à cette ville */
+    async function loadCityHistory () {
+        const res = await fetch('/history/by-city', { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error('/history/by-city failed');
+        analysisHistory = await res.json();      // ← remplit le tableau global
+    }
     window.addEventListener('load', async () => {
-        updateBinsChart(analysisHistory);
-        await initializeHeatmap();
+        try {
+            /* 1. sécurité : rediriger si pas connecté */
+            if (!localStorage.getItem('token')) {
+                location.href = 'login.html';
+                return;
+            }
+
+            /* 2. Ville + historique */
+            await loadCity();          // met à jour <span id="city">
+            await loadCityHistory();   // remplit analysisHistory
+
+            /* 3. Interface */
+            updateBinsChart(analysisHistory);
+            updateBinsPieChart();
+            await initializeHeatmap();
+            updateProcessingBinsTable();
+            updateResolvedBinsCount();
+        } catch (err) {
+            console.error(err);
+            alert('Erreur de chargement du dashboard');
+        }
     });
 
     async function fetchTemperatureDataWithRetry(coordinates) {
@@ -521,7 +558,7 @@
     });
 
     document.getElementById('addBinsButton').addEventListener('click', () => {
-        const history = JSON.parse(sessionStorage.getItem('analysisHistory')) || [];
+        const history = analysisHistory;
         const today = new Date();
 
         // Predefined random locations in Lyon
