@@ -13,7 +13,7 @@
             background-color: #f8f9fa;
         }
         .sidebar {
-            height: 100vh;
+            height: 400vh;
             background-color: #198754;
             color: white;
             padding: 15px;
@@ -50,6 +50,9 @@
         .thumbnail {
             max-height: 40px;
         }
+        div{
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
@@ -57,9 +60,9 @@
 <div class="d-flex">
     <!-- Sidebar -->
     <div class="sidebar">
-        <h2 class="fw-bold fs-5">BinWatch</h2>
+        <a href="index.html"><h2 class="fw-bold fs-5">BinWatch</h2></a>
         <ul class="list-unstyled">
-            <li><a href="index.html">Accueil</a></li>
+            <li><a href="index.html">Accueil</li>
             <li><a href="analyse.html">Analyse</a></li>
             <li><a href="tri.html">Recherche avancée</a></li>
             <li><a href="map.html">Carte</a></li>
@@ -74,6 +77,10 @@
         <h2 class="mb-3">Statistiques</h2>
         <div class="mb-3">
             <button id="addBinsButton" class="btn btn-success">Ajouter 10 poubelles à Lyon</button>
+        </div>
+        <div class="d-inline-block p-2 bg-success text-white rounded">
+            <span id="resolvedBinsCount" class="fw-bold fs-5">0</span>
+            <small>Poubelles résolues</small>
         </div>
         <div class="mb-3">
             <form id="dateFilterForm" class="row g-2">
@@ -90,24 +97,28 @@
         </div>
 
         <!-- Graph: Evolution of analyzed bins -->
-        <div class="mb-4">
-            <h3>Évolution des poubelles analysées</h3>
-            <canvas id="binsChart" width="300" height="150"></canvas>
+        <div class="container">
+            <!-- Row for two charts side by side -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h3>Évolution des poubelles analysées</h3>
+                    <canvas id="binsChart" width="300" height="300"></canvas>
+                </div>
+                <div class="col-md-6">
+                    <h3>Répartition des poubelles analysées</h3>
+                    <canvas id="binsPieChart" width="300" height="150"></canvas>
+                </div>
+            </div>
+
+            <!-- Row for the heatmap -->
+            <div class="row">
+                <div class="col-12">
+                    <h3>Carte des points critiques</h3>
+                    <div id="heatmap"></div>
+                </div>
+            </div>
         </div>
 
-        <!-- Heatmap: Critical points -->
-        <div class="mb-4">
-            <h3>Carte des points critiques</h3>
-            <div id="heatmap"></div>
-        </div>
-
-        <div class="mb-3">
-            <h3 id="todayTemperature" class="text-success"></h3>
-        </div>
-        <div class="mb-4">
-            <h3>Diagramme de la température</h3>
-            <canvas id="temperatureChart" width="300" height="150"></canvas>
-        </div>
         <div class="mb-4">
             <h3>Gestion des poubelles en traitement</h3>
             <table class="table table-bordered table-hover">
@@ -527,7 +538,7 @@
             'Gerland, Lyon'
         ];
 
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 50; i++) {
             // Random location
             const location = locations[Math.floor(Math.random() * locations.length)];
 
@@ -536,18 +547,21 @@
             randomDate.setDate(today.getDate() - Math.floor(Math.random() * 30));
             const formattedDate = randomDate.toISOString().split('T')[0];
 
+            // Random annotation
+            const annotation = Math.random() < 0.5 ? 'Pleine' : 'Vide';
+
             history.push({
-                annotation: 'Pleine',
+                annotation: annotation,
                 location: location,
                 date: formattedDate,
                 imagePath: '', // No image
                 status: 'processing',
-                label: 'Pleine',
+                label: annotation,
             });
         }
 
         sessionStorage.setItem('analysisHistory', JSON.stringify(history));
-        alert('10 poubelles avec des localisations et dates aléatoires ajoutées à Lyon.');
+        alert('50 poubelles avec des localisations, annotations et dates aléatoires ajoutées à Lyon.');
     });
     function updateProcessingBinsTable() {
         const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
@@ -587,6 +601,69 @@
     window.addEventListener("load", () => {
         updateProcessingBinsTable();
     });
+    function updateResolvedBinsCount() {
+        const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
+        const resolvedBinsCount = history.filter(bin => bin.status === "resolved").length;
+        document.getElementById("resolvedBinsCount").textContent = resolvedBinsCount;
+    }
+
+    // Call this function on page load and after resolving a bin
+    window.addEventListener("load", updateResolvedBinsCount);
+
+    function resolveBin(index) {
+        const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
+        const processingBins = history.filter(bin => bin.status === "processing");
+
+        const binToResolve = processingBins[index];
+        const binIndex = history.findIndex(bin => bin === binToResolve);
+        if (binIndex !== -1) {
+            history[binIndex].status = "resolved";
+            sessionStorage.setItem("analysisHistory", JSON.stringify(history));
+            updateProcessingBinsTable();
+            updateResolvedBinsCount(); // Update the count after resolving
+        }
+    }
+
+    let binsPieChartInstance = null;
+
+    function updateBinsPieChart() {
+        const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
+        const pleineCount = history.filter(bin => bin.annotation === "Pleine").length;
+        const videCount = history.filter(bin => bin.annotation === "Vide").length;
+        const total = pleineCount + videCount;
+
+        const data = {
+            labels: ["Pleine", "Vide"],
+            datasets: [{
+                data: [pleineCount, videCount],
+                backgroundColor: ["#FF6384", "#36A2EB"],
+                hoverBackgroundColor: ["#FF6384", "#36A2EB"]
+            }]
+        };
+
+        const options = {
+            responsive: true,
+            plugins: {
+                tooltip: { enabled: true },
+                legend: { display: true, position: "bottom" }
+            }
+        };
+
+        const ctx = document.getElementById("binsPieChart").getContext("2d");
+
+        if (binsPieChartInstance) {
+            binsPieChartInstance.destroy();
+        }
+
+        binsPieChartInstance = new Chart(ctx, {
+            type: "pie",
+            data: data,
+            options: options
+        });
+    }
+
+    // Call this function on page load
+    window.addEventListener("load", updateBinsPieChart);
 
 </script>
 </body>
