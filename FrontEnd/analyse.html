@@ -18,6 +18,7 @@
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
       <span class="navbar-toggler-icon"></span>
     </button>
+
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav ms-auto">
         <li class="nav-item"><a class="nav-link text-white" href="index.html">Accueil</a></li>
@@ -25,19 +26,22 @@
         <li class="nav-item"><a class="nav-link text-white" href="tri.html">Recherche avancée</a></li>
         <li class="nav-item"><a class="nav-link text-white" href="map.html">Carte</a></li>
         <li class="nav-item"><a class="nav-link text-white" href="about.html">À propos</a></li>
+
+        <!-- Dashboard: caché par défaut -->
+        <li class="nav-item d-none" id="dashboardNav">
+          <a class="nav-link text-white" href="dashboard.html">Dashboard</a>
+        </li>
       </ul>
     </div>
 
-    <!-- bouton compte dynamique -->
+    <!-- Compte -->
     <a id="accountBtn" class="btn btn-outline-light" href="login.html">Connexion</a>
   </div>
 </nav>
 
 <div class="container py-5">
   <h1 class="text-success mb-4">Module d’analyse</h1>
-  <p>
-    Téléversez une image, ajoutez des informations, puis laissez BinWatch analyser l’état de la poubelle.
-  </p>
+  <p>Téléversez une image, ajoutez des informations, puis laissez BinWatch analyser l’état de la poubelle.</p>
 
   <!-- Upload form -->
   <form id="uploadForm" enctype="multipart/form-data">
@@ -46,7 +50,7 @@
       <input class="form-control" type="file" id="imageInput" name="image" accept="image/*" required>
     </div>
 
-    <!-- Preview & annotation buttons -->
+    <!-- Preview & annotation -->
     <div id="imageContainer" class="mb-3 d-none">
       <p class="fw-bold">Aperçu :</p>
       <img id="preview" class="img-fluid border">
@@ -72,14 +76,12 @@
     <button type="submit" class="btn btn-success mt-3 d-none" id="analyzeButton">Analyser</button>
   </form>
 
-  <!-- History table -->
+  <!-- History -->
   <div class="mt-5">
     <h5>Historique des images téléversées</h5>
     <table class="table table-bordered table-hover">
       <thead class="table-success">
-      <tr>
-        <th>Miniature</th><th>Date</th><th>Annotation</th><th>Localisation</th><th>Chemin</th><th>Résultat</th>
-      </tr>
+      <tr><th>Miniature</th><th>Date</th><th>Annotation</th><th>Localisation</th><th>Chemin</th><th>Résultat</th></tr>
       </thead>
       <tbody id="historyTable"></tbody>
     </table>
@@ -90,30 +92,32 @@
   &copy; 2025 BinWatch – Tous droits réservés.
 </footer>
 
-<!-- Bootstrap bundle -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-  /* ----------- compte (login/logout) ----------- */
-  (function(){
-    const btn   = document.getElementById('accountBtn');
-    const token = localStorage.getItem('token');
+  /* ---------- Connexion / Déconnexion + Dashboard ---------- */
+  (function () {
+    const btn          = document.getElementById('accountBtn');
+    const dashItem     = document.getElementById('dashboardNav');
+    const token        = localStorage.getItem('token');
 
-    if(token){
+    if (token) {
       btn.textContent = 'Déconnexion';
       btn.href        = '#';
-      btn.addEventListener('click', e=>{
+      dashItem.classList.remove('d-none');
+      btn.addEventListener('click', e => {
         e.preventDefault();
         localStorage.removeItem('token');
         location.reload();
       });
-    }else{
+    } else {
       btn.textContent = 'Connexion';
       btn.href        = 'login.html';
+      dashItem.classList.add('d-none');
     }
   })();
 
-  /* ----------- analyse logic ----------- */
+  /* ---------- Analyse logic (inchangé) ---------- */
   const imageInput       = document.getElementById('imageInput');
   const preview          = document.getElementById('preview');
   const imageContainer   = document.getElementById('imageContainer');
@@ -124,19 +128,19 @@
   const dateField        = document.getElementById('dateField');
   const historyTable     = document.getElementById('historyTable');
 
-  imageInput.addEventListener('change',()=>{
+  imageInput.addEventListener('change', () => {
     const file = imageInput.files[0];
-    if(!file) return;
+    if (!file) return;
     const reader = new FileReader();
-    reader.onload = e=>{
+    reader.onload = e => {
       preview.src = e.target.result;
       imageContainer.classList.remove('d-none');
     };
     reader.readAsDataURL(file);
   });
 
-  function showQuestionnaire(annotation){
-    annotationField.value = annotation;
+  function showQuestionnaire(a){
+    annotationField.value = a;
     detailsContainer.classList.remove('d-none');
     analyzeButton.classList.remove('d-none');
   }
@@ -146,15 +150,12 @@
   function updateHistoryTable(list){
     historyTable.innerHTML = '';
     list.forEach(({annotation,location,date,imagePath,label})=>{
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-      <td><img src="${imagePath}" class="thumbnail img-thumbnail"></td>
-      <td>${date}</td>
-      <td>${annotation}</td>
-      <td>${location}</td>
-      <td>${imagePath}</td>
-      <td>${label}</td>`;
-      historyTable.appendChild(tr);
+      historyTable.insertAdjacentHTML('beforeend',`
+      <tr>
+        <td><img src="${imagePath}" class="thumbnail img-thumbnail"></td>
+        <td>${date}</td><td>${annotation}</td><td>${location}</td>
+        <td>${imagePath}</td><td>${label}</td>
+      </tr>`);
     });
   }
 
@@ -162,44 +163,40 @@
     e.preventDefault();
     if(!imageInput.files.length) return;
 
-    const formData = new FormData();
-    formData.append('image', imageInput.files[0]);
-    formData.append('annotation', annotationField.value);
-    formData.append('location',   locationField.value);
-    formData.append('date',       dateField.value);
+    const fd = new FormData();
+    fd.append('image', imageInput.files[0]);
+    fd.append('annotation', annotationField.value);
+    fd.append('location', locationField.value);
+    fd.append('date', dateField.value);
 
     const headers = {};
     const token   = localStorage.getItem('token');
     if(token) headers['Authorization'] = `Bearer ${token}`;
 
     try{
-      const res  = await fetch('/upload',{method:'POST',body:formData,headers});
+      const res = await fetch('/upload',{method:'POST',body:fd,headers});
       if(!res.ok) throw new Error('Erreur serveur : '+res.status);
       const data = await res.json();
-
-      const historyRow = {
+      const row  = {
         annotation: annotationField.value,
         location:   locationField.value,
         date:       dateField.value,
         imagePath:  data.imageUrl,
         label:      data.label
       };
-      updateHistoryTable([historyRow, ...JSON.parse(sessionStorage.getItem('analysisHistory')||'[]')]);
-    }catch(err){
-      alert(err.message || 'Erreur inconnue');
-    }
+      updateHistoryTable([row,...JSON.parse(sessionStorage.getItem('tmpHist')||'[]')]);
+    }catch(err){ alert(err.message||'Erreur inconnue'); }
   });
 
-  /* ----------- charger l’historique ----------- */
-  window.addEventListener('load',async()=>{
+  window.addEventListener('load', async ()=>{
     const headers = {};
-    const token   = localStorage.getItem('token');
+    const token = localStorage.getItem('token');
     if(token) headers['Authorization'] = `Bearer ${token}`;
 
     try{
       const res = await fetch('/history',{headers});
-      if(!res.ok) throw new Error('Impossible de charger l\'historique');
-      const data = await res.json(); // [{path,created_at,...}]
+      if(!res.ok) throw new Error('Impossible de charger l’historique');
+      const data = await res.json();
       const list = data.map(d=>({
         annotation:d.annotation||'–',
         location:d.location||'–',
@@ -210,7 +207,7 @@
       updateHistoryTable(list);
     }catch(err){
       console.error(err);
-      historyTable.innerHTML = '<tr><td colspan=\"6\">Erreur de chargement</td></tr>';
+      historyTable.innerHTML = '<tr><td colspan="6">Erreur de chargement</td></tr>';
     }
   });
 </script>
