@@ -5,14 +5,8 @@
   <title>Analyse – BinWatch</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    #preview {
-      max-width: 100%;
-      height: auto;
-      margin-bottom: 1rem;
-    }
-    .thumbnail {
-      max-height: 60px;
-    }
+    #preview{max-width:100%;height:auto;margin-bottom:1rem}
+    .thumbnail{max-height:60px}
   </style>
 </head>
 <body class="bg-light text-dark">
@@ -28,18 +22,22 @@
       <ul class="navbar-nav ms-auto">
         <li class="nav-item"><a class="nav-link text-white" href="index.html">Accueil</a></li>
         <li class="nav-item"><a class="nav-link text-white" href="analyse.html">Analyse</a></li>
-         <li class="nav-item"><a class="nav-link text-white" href="tri.html">Recherche avancée</a></li>
+        <li class="nav-item"><a class="nav-link text-white" href="tri.html">Recherche avancée</a></li>
         <li class="nav-item"><a class="nav-link text-white" href="map.html">Carte</a></li>
         <li class="nav-item"><a class="nav-link text-white" href="about.html">À propos</a></li>
       </ul>
     </div>
-    <a class="btn btn-outline-light" href="login.html">Connexion</a>
+
+    <!-- bouton compte dynamique -->
+    <a id="accountBtn" class="btn btn-outline-light" href="login.html">Connexion</a>
   </div>
 </nav>
 
 <div class="container py-5">
   <h1 class="text-success mb-4">Module d’analyse</h1>
-  <p>Cette section permet de téléverser des images, annoter leur contenu, et visualiser les informations liées à chaque image.</p>
+  <p>
+    Téléversez une image, ajoutez des informations, puis laissez BinWatch analyser l’état de la poubelle.
+  </p>
 
   <!-- Upload form -->
   <form id="uploadForm" enctype="multipart/form-data">
@@ -77,138 +75,4 @@
   <!-- History table -->
   <div class="mt-5">
     <h5>Historique des images téléversées</h5>
-    <table class="table table-bordered table-hover">
-      <thead class="table-success">
-      <tr>
-        <th>Miniature</th>
-        <th>Date</th>
-        <th>Annotation</th>
-        <th>Localisation</th>
-        <th>Chemin</th>
-        <th>Résultat de l'analyse</th>
-      </tr>
-      </thead>
-      <tbody id="historyTable"></tbody>
-    </table>
-  </div>
-</div>
-
-<!-- Footer -->
-<footer class="bg-success text-white py-4 text-center">
-  &copy; 2025 BinWatch – Tous droits réservés.
-</footer>
-
-
-<script>
-  const imageInput      = document.getElementById("imageInput");
-  const preview         = document.getElementById("preview");
-  const imageContainer  = document.getElementById("imageContainer");
-  const detailsContainer= document.getElementById("detailsContainer");
-  const btnPleine       = document.getElementById("btnPleine");
-  const btnVide         = document.getElementById("btnVide");
-  const annotationField = document.getElementById("annotationField");
-  const analyzeButton   = document.getElementById("analyzeButton");
-  const locationField   = document.getElementById("locationField");
-  const dateField       = document.getElementById("dateField");
-  const historyTable    = document.getElementById("historyTable");
-
-  // When a file is chosen, show preview & annotation choices
-  imageInput.addEventListener("change", () => {
-    const file = imageInput.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      preview.src = e.target.result;
-      imageContainer.classList.remove("d-none");
-    };
-    reader.readAsDataURL(file);
-  });
-
-  function showQuestionnaire(annotation) {
-    annotationField.value = annotation;
-    detailsContainer.classList.remove("d-none");
-    analyzeButton.classList.remove("d-none");
-  }
-
-  function addToHistory(annotation, location, date, imagePath, label) {
-    const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
-    history.push({ annotation, location, date, imagePath, label, status: "processing" });
-    history.sort((a, b) => new Date(b.date) - new Date(a.date));
-    sessionStorage.setItem("analysisHistory", JSON.stringify(history));
-    updateHistoryTable(history);
-  }
-
-  function updateHistoryTable(history) {
-    historyTable.innerHTML = "";
-    history.forEach(({ annotation, location, date, imagePath, label }) => {
-      const row = document.createElement("tr");
-      row.innerHTML = `
-          <td><img src="${imagePath}" class="thumbnail img-thumbnail"></td>
-          <td>${date}</td>
-          <td>${annotation}</td>
-          <td>${location}</td>
-          <td>${imagePath}</td>
-          <td>${label}</td>
-        `;
-      historyTable.appendChild(row);
-    });
-  }
-
-  btnPleine.addEventListener("click", () => showQuestionnaire("Pleine"));
-  btnVide.addEventListener("click",   () => showQuestionnaire("Vide"));
-
-  document.getElementById("uploadForm").addEventListener("submit", async e => {
-    e.preventDefault();
-    if (!imageInput.files.length) return;
-
-    const formData = new FormData();
-    formData.append("image", imageInput.files[0]);
-  formData.append("annotation", annotationField.value);
-  formData.append("location", locationField.value);
-formData.append("date", dateField.value);
-
-
-    try {
-      const res  = await fetch("/upload", { method: "POST", body: formData });
-      if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`);
-      const data = await res.json();
-
-      // data.imageUrl is e.g. "/uploads/12345-file.jpg"
-      // data.label    is "pleine" or "vide"
-      addToHistory(
-              annotationField.value,
-              locationField.value,
-              dateField.value,
-              data.imageUrl,
-              data.label
-      );
-    } catch (err) {
-      alert(err.message || "Erreur inconnue");
-    }
-  });
-
-  // On load, fetch history from backend
-window.addEventListener("load", async () => {
-  try {
-    const res = await fetch("/history");
-    if (!res.ok) throw new Error("Impossible de charger l'historique");
-    const data = await res.json();
-
-    // Expected format: [{ path, created_at, annotation, location, label }]
-    const formatted = data.map(item => ({
-      annotation: item.annotation || "–",
-      location: item.location || "–",
-      date: item.created_at ? item.created_at.split('T')[0] : "–",
-      imagePath: item.path,
-      label: item.label || "–"
-    }));
-
-    updateHistoryTable(formatted);
-  } catch (err) {
-    console.error("Erreur lors du chargement de l'historique :", err);
-    historyTable.innerHTML = `<tr><td colspan="6">Erreur de chargement de l'historique</td></tr>`;
-  }
-});
-</script>
-</body>
-</html>
+    <table cl
