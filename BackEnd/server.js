@@ -275,6 +275,32 @@ app.get('/me/city', auth, async (req, res) => {
 });
 
 
+app.get('/history/by-city', auth, async (req, res) => {
+  try {
+    //-- retrouver la ville de l’utilisateur
+    const { rows } = await pool.query(
+      'SELECT ville FROM public.utilisateur WHERE id=$1', [req.user.userId]
+    );
+    const ville = rows[0]?.ville || '';
+    if (!ville) return res.json([]);        // pas de ville → pas de données
+
+    //-- récupérer l’historique correspondant
+    const q = `
+      SELECT h.path, h.created_at, h.annotation, h.location, h.label
+      FROM   public.image_history h
+      WHERE  LOWER(h.location) LIKE LOWER($1)      -- filtre ville
+      ORDER  BY h.created_at DESC
+      LIMIT  100
+    `;
+    const hist = await pool.query(q, [`%${ville}%`]);
+    res.json(hist.rows);
+
+  } catch (err) {
+    console.error('[/history/by-city] error:', err);
+    res.status(500).json({ success:false, error:'Erreur serveur' });
+  }
+});
+
 // ── START SERVER ─────────────────────────────────────────────────
 app.listen(PORT, () =>
   console.log(`Server running on http://localhost:${PORT}`)
