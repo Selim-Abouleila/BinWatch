@@ -242,6 +242,22 @@ app.get('/history', async (req, res) => {
   }
 });
 
+
+app.get('/me/city', auth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT ville FROM public.utilisateur WHERE id = $1',
+      [req.user.userId]
+    );
+    const ville = result.rows[0]?.ville || null;   // "null" si non renseigné
+    res.json({ success: true, ville });
+  } catch (err) {
+    console.error('[/me/city] error:', err);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+});
+
+
 // ── START SERVER ─────────────────────────────────────────────────
 app.listen(PORT, () =>
   console.log(`Server running on http://localhost:${PORT}`)
