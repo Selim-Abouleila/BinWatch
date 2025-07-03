@@ -132,7 +132,7 @@
 
   function addToHistory(annotation, location, date, imagePath, label) {
     const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
-    history.push({ annotation, location, date, imagePath, label });
+    history.push({ annotation, location, date, imagePath, label, status: "processing" });
     history.sort((a, b) => new Date(b.date) - new Date(a.date));
     sessionStorage.setItem("analysisHistory", JSON.stringify(history));
     updateHistoryTable(history);
