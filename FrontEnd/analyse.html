@@ -144,8 +144,13 @@
     detailsContainer.classList.remove('d-none');
     analyzeButton.classList.remove('d-none');
   }
-  document.getElementById('btnPleine').onclick = ()=>showQuestionnaire('Pleine');
-  document.getElementById('btnVide'  ).onclick = ()=>showQuestionnaire('Vide');
+  window.addEventListener('load', () => {
+    document.getElementById('btnPleine')
+            .addEventListener('click', () => showQuestionnaire('Pleine'));
+
+    document.getElementById('btnVide')
+            .addEventListener('click', () => showQuestionnaire('Vide'));
+  });
 
   function updateHistoryTable(list){
     historyTable.innerHTML = '';
