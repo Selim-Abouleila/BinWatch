@@ -68,10 +68,11 @@ Table public.utilisateur structure (expected)
 
 // POST /register – create user account (ville → "confidentiel")
 app.post('/register', async (req, res) => {
-  const { prenom, nom, email, password } = req.body;
-  const ville = 'confidentiel'; // valeur par défaut masquée
+  // Accept ville from body; fallback to "confidentiel" if absent/empty
+  let { prenom, nom, email, ville, password } = req.body;
+  ville = (ville || '').trim() || 'confidentiel';
 
-  // Basic validation
+  // Basic validation (ville may be empty)
   if (!prenom || !nom || !email || !password) {
     return res.status(400).json({ success: false, error: 'Champs requis manquants' });
   }
@@ -86,7 +87,7 @@ app.post('/register', async (req, res) => {
     // Hash password
     const hash = await bcrypt.hash(password, SALT_ROUNDS);
 
-    // Insert new user with ville="confidentiel"
+    // Insert new user
     const insertSQL = `
       INSERT INTO public.utilisateur (prenom, nom, email, ville, mot_de_passe)
       VALUES ($1, $2, $3, $4, $5)
