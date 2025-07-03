@@ -13,24 +13,42 @@
             background-color: #f8f9fa;
         }
         .sidebar {
-            height: 200vh;
+            height: 100vh;
             background-color: #198754;
             color: white;
-            padding: 20px;
+            padding: 15px;
         }
         .sidebar a {
             color: white;
             text-decoration: none;
+            font-size: 0.9rem;
         }
         .sidebar a:hover {
             text-decoration: underline;
         }
         .content {
-            padding: 20px;
+            padding: 15px;
         }
         #heatmap {
-            height: 400px;
-            margin-top: 20px;
+            height: 300px;
+            margin-top: 15px;
+        }
+        .table {
+            font-size: 0.85rem;
+        }
+        h1, h2, h3 {
+            font-size: 1.25rem;
+        }
+        .btn {
+            font-size: 0.85rem;
+            padding: 5px 10px;
+        }
+        .form-control {
+            font-size: 0.85rem;
+            padding: 5px;
+        }
+        .thumbnail {
+            max-height: 40px;
         }
     </style>
 </head>
@@ -39,7 +57,7 @@
 <div class="d-flex">
     <!-- Sidebar -->
     <div class="sidebar">
-        <h2 class="fw-bold">BinWatch</h2>
+        <h2 class="fw-bold fs-5">BinWatch</h2>
         <ul class="list-unstyled">
             <li><a href="index.html">Accueil</a></li>
             <li><a href="analyse.html">Analyse</a></li>
@@ -52,36 +70,59 @@
 
     <!-- Main Content -->
     <div class="content flex-grow-1">
-        <h1 class="mb-4">Maire de : <span id="city"></span></h1>
-        <h2 class="mb-4">Statistiques</h2>
-        <div class="mb-4">
-            <form id="dateFilterForm">
-                <label for="startDate" class="form-label">Date de début :</label>
-                <input type="date" id="startDate" class="form-control mb-2" required>
-                <label for="endDate" class="form-label">Date de fin :</label>
-                <input type="date" id="endDate" class="form-control mb-2" required>
-                <button type="submit" class="btn btn-success">Filtrer</button>
+        <h1 class="mb-3">Maire de : <span id="city"></span></h1>
+        <h2 class="mb-3">Statistiques</h2>
+        <div class="mb-3">
+            <button id="addBinsButton" class="btn btn-success">Ajouter 10 poubelles à Lyon</button>
+        </div>
+        <div class="mb-3">
+            <form id="dateFilterForm" class="row g-2">
+                <div class="col">
+                    <input type="date" id="startDate" class="form-control" required>
+                </div>
+                <div class="col">
+                    <input type="date" id="endDate" class="form-control" required>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-success">Filtrer</button>
+                </div>
             </form>
         </div>
 
         <!-- Graph: Evolution of analyzed bins -->
-        <div class="mb-5">
-            <h3>Évolution des poubelles analysées par jour</h3>
-            <canvas id="binsChart" width="400" height="200"></canvas>
+        <div class="mb-4">
+            <h3>Évolution des poubelles analysées</h3>
+            <canvas id="binsChart" width="300" height="150"></canvas>
         </div>
 
         <!-- Heatmap: Critical points -->
-        <div class="mb-5">
+        <div class="mb-4">
             <h3>Carte des points critiques</h3>
             <div id="heatmap"></div>
         </div>
 
-        <div class="mb-4">
+        <div class="mb-3">
             <h3 id="todayTemperature" class="text-success"></h3>
         </div>
-        <div class="mb-5">
+        <div class="mb-4">
             <h3>Diagramme de la température</h3>
-            <canvas id="temperatureChart" width="400" height="200"></canvas>
+            <canvas id="temperatureChart" width="300" height="150"></canvas>
+        </div>
+        <div class="mb-4">
+            <h3>Gestion des poubelles en traitement</h3>
+            <table class="table table-bordered table-hover">
+                <thead class="table-success">
+                <tr>
+                    <th>Miniature</th>
+                    <th>Date</th>
+                    <th>Annotation</th>
+                    <th>Localisation</th>
+                    <th>Statut</th>
+                    <th>Action</th>
+                </tr>
+                </thead>
+                <tbody id="processingBinsTable"></tbody>
+            </table>
         </div>
     </div>
 </div>
@@ -159,6 +200,14 @@
             attribution: '© OpenStreetMap contributors'
         }).addTo(heatmap);
 
+        // Define a modern custom icon
+        const modernIcon = L.icon({
+            iconUrl: 'https://cdn-icons-png.flaticon.com/128/684/684809.png', // Example modern icon
+            iconSize: [40, 40], // Icon size [width, height]
+            iconAnchor: [20, 40], // Anchor point of the icon [x, y]
+            popupAnchor: [0, -40] // Position of the popup relative to the icon [x, y]
+        });
+
         const locationCounts = {}; // Count occurrences of each location
         for (const { location } of analysisHistory) {
             if (location) {
@@ -176,18 +225,23 @@
                 const radius = calculateRadius(count);
                 const color = calculateColor(count);
 
+                // Add circle for density
                 L.circle(latLng, {
                     radius: radius,
                     color: color,
                     weight: 1, // Smaller border
                     fillOpacity: 0.7
                 }).addTo(heatmap);
+
+                // Add modern marker for precise location
+                L.marker(latLng, { icon: modernIcon })
+                    .addTo(heatmap)
+                    .bindPopup(`<strong>${location}</strong><br>Occurrences: ${count}`);
             } else {
                 console.warn('Invalid location data:', location);
             }
         }
     }
-
     function filterDataByDateRange(data, startDate, endDate) {
         return data.filter(({ date }) => date >= startDate && date <= endDate);
     }
@@ -214,7 +268,7 @@
             data: {
                 labels: sortedDates,
                 datasets: [{
-                    label: 'Bacs analysés',
+                    label: 'Poubelles analysés',
                     data: sortedBins,
                     borderColor: 'rgba(255, 99, 132, 1)',
                     backgroundColor: 'rgba(255, 99, 132, 0.2)',
@@ -224,7 +278,7 @@
                 responsive: true,
                 scales: {
                     x: { title: { display: true, text: 'Date' } },
-                    y: { title: { display: true, text: 'Nombre de bacs' } }
+                    y: { title: { display: true, text: 'Nombre de Poubelles' } }
                 }
             }
         });
@@ -276,11 +330,86 @@
         await initializeHeatmap();
     });
 
+    async function fetchTemperatureDataWithRetry(coordinates) {
+        const cacheKey = `temperatureData_${coordinates[0]}_${coordinates[1]}`;
+        const cachedData = JSON.parse(localStorage.getItem(cacheKey));
+        const cacheExpiry = 60 * 60 * 1000; // 1 hour
+
+        if (cachedData && (Date.now() - cachedData.timestamp < cacheExpiry)) {
+            return cachedData.data; // Return cached data if valid
+        }
+
+        let retries = 3; // Number of retries
+        let delay = 1000; // Initial delay in milliseconds
+
+        while (retries > 0) {
+            try {
+                const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coordinates[0]}&longitude=${coordinates[1]}&hourly=temperature_2m&timezone=auto`);
+                if (response.status === 429) {
+                    throw new Error('API rate limit exceeded. Retrying...');
+                }
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() })); // Cache the response
+                return data;
+            } catch (error) {
+                console.error('Error fetching temperature data:', error.message);
+                if (error.message.includes('rate limit') && retries > 1) {
+                    await new Promise(resolve => setTimeout(resolve, delay)); // Wait before retrying
+                    delay *= 2; // Exponential backoff
+                    retries--;
+                } else {
+                    throw error; // Exit on other errors
+                }
+            }
+        }
+    }
+    async function fetchTemperatureDataWithCache(coordinates) {
+        const cacheKey = `temperatureData_${coordinates[0]}_${coordinates[1]}`;
+        const cachedData = JSON.parse(localStorage.getItem(cacheKey));
+        const cacheExpiry = 60 * 60 * 1000; // 1 hour
+
+        if (cachedData && (Date.now() - cachedData.timestamp < cacheExpiry)) {
+            return cachedData.data; // Return cached data if valid
+        }
+
+        let retries = 3; // Number of retries
+        let delay = 1000; // Initial delay in milliseconds
+
+        while (retries > 0) {
+            try {
+                const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coordinates[0]}&longitude=${coordinates[1]}&hourly=temperature_2m&timezone=auto`);
+                if (response.status === 429) {
+                    throw new Error('API rate limit exceeded. Retrying...');
+                }
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() })); // Cache the response
+                return data;
+            } catch (error) {
+                console.error('Error fetching temperature data:', error.message);
+                if (error.message.includes('rate limit') && retries > 1) {
+                    await new Promise(resolve => setTimeout(resolve, delay)); // Wait before retrying
+                    delay *= 2; // Exponential backoff
+                    retries--;
+                } else {
+                    throw error; // Exit on other errors
+                }
+            }
+        }
+    }
+
     let temperatureChartInstance = null;
 
     // Function to fetch and display today's temperature
     async function displayTodayTemperature() {
-        const city = sessionStorage.getItem('city') || 'Paris'; // Default to Paris
+        const city = sessionStorage.getItem('city') || 'Paris';
         const coordinates = await getCityCoordinates(city);
 
         if (!coordinates || coordinates.some(coord => isNaN(coord))) {
@@ -289,15 +418,22 @@
         }
 
         try {
-            const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coordinates[0]}&longitude=${coordinates[1]}&hourly=temperature_2m&timezone=auto`);
-            const data = await response.json();
+            const data = await fetchTemperatureDataWithCache(coordinates);
 
             const today = new Date().toISOString().split('T')[0];
-            const todayTemperatures = data.hourly.temperature_2m.slice(0, 24); // First 24 hours for today
+            const todayData = data.hourly.time.map((time, index) => ({
+                time,
+                temperature: data.hourly.temperature_2m[index]
+            })).filter(({ time }) => time.startsWith(today));
 
-            document.getElementById('todayTemperature').textContent = `Température d'aujourd'hui: ${todayTemperatures[0]}°C`;
+            if (todayData.length > 0) {
+                const avgTemp = todayData.reduce((sum, { temperature }) => sum + temperature, 0) / todayData.length;
+                document.getElementById('todayTemperature').textContent = `Température moyenne aujourd'hui: ${avgTemp.toFixed(1)}°C`;
+            } else {
+                document.getElementById('todayTemperature').textContent = 'Aucune donnée disponible pour aujourd\'hui.';
+            }
         } catch (error) {
-            console.error('Error fetching temperature data:', error);
+            alert(error.message); // Notify the user
         }
     }
 
@@ -372,6 +508,86 @@
     window.addEventListener('load', async () => {
         await displayTodayTemperature();
     });
+
+    document.getElementById('addBinsButton').addEventListener('click', () => {
+        const history = JSON.parse(sessionStorage.getItem('analysisHistory')) || [];
+        const today = new Date();
+
+        // Predefined random locations in Lyon
+        const locations = [
+            'Place Bellecour, Lyon',
+            'Parc de la Tête d\'Or, Lyon',
+            'Rue de la République, Lyon',
+            'Confluence, Lyon',
+            'Vieux Lyon, Lyon',
+            'Part-Dieu, Lyon',
+            'Fourvière, Lyon',
+            'Guillotière, Lyon',
+            'Croix-Rousse, Lyon',
+            'Gerland, Lyon'
+        ];
+
+        for (let i = 0; i < 10; i++) {
+            // Random location
+            const location = locations[Math.floor(Math.random() * locations.length)];
+
+            // Random date within the last 30 days
+            const randomDate = new Date(today);
+            randomDate.setDate(today.getDate() - Math.floor(Math.random() * 30));
+            const formattedDate = randomDate.toISOString().split('T')[0];
+
+            history.push({
+                annotation: 'Pleine',
+                location: location,
+                date: formattedDate,
+                imagePath: '', // No image
+                status: 'processing',
+                label: 'Pleine',
+            });
+        }
+
+        sessionStorage.setItem('analysisHistory', JSON.stringify(history));
+        alert('10 poubelles avec des localisations et dates aléatoires ajoutées à Lyon.');
+    });
+    function updateProcessingBinsTable() {
+        const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
+        const processingBins = history.filter(bin => bin.status === "processing");
+
+        const tableBody = document.getElementById("processingBinsTable");
+        tableBody.innerHTML = "";
+
+        processingBins.forEach((bin, index) => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+            <td><img src="${bin.imagePath || 'https://via.placeholder.com/40'}" class="thumbnail img-thumbnail"></td>
+            <td>${bin.date}</td>
+            <td>${bin.annotation}</td>
+            <td>${bin.location}</td>
+            <td>${bin.status}</td>
+            <td><button class="btn btn-success btn-sm" onclick="resolveBin(${index})">✔</button></td>
+        `;
+            tableBody.appendChild(row);
+        });
+    }
+
+    function resolveBin(index) {
+        const history = JSON.parse(sessionStorage.getItem("analysisHistory")) || [];
+        const processingBins = history.filter(bin => bin.status === "processing");
+
+        const binToResolve = processingBins[index];
+        const binIndex = history.findIndex(bin => bin === binToResolve);
+        if (binIndex !== -1) {
+            history[binIndex].status = "resolved";
+            sessionStorage.setItem("analysisHistory", JSON.stringify(history));
+            updateProcessingBinsTable();
+        }
+    }
+
+    // On page load, initialize the processing bins table
+    window.addEventListener("load", () => {
+        updateProcessingBinsTable();
+    });
+
 </script>
 </body>
 </html>
