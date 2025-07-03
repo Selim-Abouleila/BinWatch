@@ -1,68 +1,159 @@
-
 // server.js ---------------------------------------------------------
 const express  = require('express');
 const multer   = require('multer');
 const sharp    = require('sharp');
 const path     = require('path');
 const fs       = require('fs');
-const fetch    = require('node-fetch');    // npm i node-fetch@2
-const FormData = require('form-data');     // npm i form-data
-const { Pool } = require('pg');            // npm i pg
-
+const fetch    = require('node-fetch');      // npm i node-fetch@2
+const FormData = require('form-data');       // npm i form-data
+const { Pool } = require('pg');              // npm i pg
+const bcrypt   = require('bcrypt');          // npm i bcrypt
+const jwt      = require('jsonwebtoken');    // npm i jsonwebtoken
 
 console.log('❯ DATABASE_URL       =', process.env.DATABASE_URL);
 
+// ── CONSTANTS & CONFIG ────────────────────────────────────────────
+const SALT_ROUNDS = 10;
+const JWT_SECRET  = process.env.JWT_SECRET || 'change_this_secret';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-
-// ── CONFIG ────────────────────────────────────────────────────────
 const FLASK_URL    = `http://${process.env.FLASK_HOST || 'localhost'}:${process.env.FLASK_PORT || '5000'}`;
-const PORT = process.env.PORT || 3000;
+const PORT         = process.env.PORT || 3000;
 const FRONTEND_DIR = path.join(__dirname, '..', 'FrontEnd');
 const UPLOADS_DIR  = path.join(__dirname, 'uploads');
-
-
-// Postgres pool (will pick up PGHOST, PGUSER, PGPASSWORD, PGDATABASE, PGPORT)
-
 
 // Ensure uploads folder exists
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
-// App setup
+// ── APP SETUP ─────────────────────────────────────────────────────
 const app = express();
 app.use(express.static(FRONTEND_DIR));
 app.use('/uploads', express.static(UPLOADS_DIR));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Multer config
+// ── MULTER CONFIG ────────────────────────────────────────────────
 const storage = multer.diskStorage({
   destination: UPLOADS_DIR,
   filename:  (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
 });
 const upload = multer({ storage });
 
-// Route: serve index.html
+// ── ROUTES ───────────────────────────────────────────────────────
+
+// Serve SPA entrypoint
 app.get('/', (req, res) =>
   res.sendFile(path.join(FRONTEND_DIR, 'index.html'))
 );
 
-// Route: upload → local metadata → call Flask → insert into Postgres → respond
-app.post('/upload', upload.single('image'), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'No file uploaded' });
+// ------------------------------------------------------------------
+// AUTHENTICATION ROUTES USING TABLE public.utilisateur
+// ------------------------------------------------------------------
+
+/*
+Table public.utilisateur structure (expected)
+-------------------------------------------------
+ id             SERIAL PRIMARY KEY
+ prenom         VARCHAR(100)   NOT NULL
+ nom            VARCHAR(100)   NOT NULL
+ email          VARCHAR(255)   UNIQUE NOT NULL
+ ville          VARCHAR(100)
+ mot_de_passe   TEXT           NOT NULL   -- stores *hashed* password
+ date_creation  TIMESTAMP      DEFAULT CURRENT_TIMESTAMP
+*/
+
+// POST /register – create user account (ville → "confidentiel")
+app.post('/register', async (req, res) => {
+  const { prenom, nom, email, password } = req.body;
+  const ville = 'confidentiel'; // valeur par défaut masquée
+
+  // Basic validation
+  if (!prenom || !nom || !email || !password) {
+    return res.status(400).json({ success: false, error: 'Champs requis manquants' });
   }
 
-  const localPath = `/uploads/${req.file.filename}`;
-  const imagePath = path.join(UPLOADS_DIR, req.file.filename);
+  try {
+    // Check if email already exists
+    const exists = await pool.query('SELECT 1 FROM public.utilisateur WHERE email = $1', [email]);
+    if (exists.rowCount > 0) {
+      return res.status(409).json({ success: false, error: 'Email déjà utilisé' });
+    }
+
+    // Hash password
+    const hash = await bcrypt.hash(password, SALT_ROUNDS);
+
+    // Insert new user with ville="confidentiel"
+    const insertSQL = `
+      INSERT INTO public.utilisateur (prenom, nom, email, ville, mot_de_passe)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id
+    `;
+    const { rows } = await pool.query(insertSQL, [prenom, nom, email, ville, hash]);
+    const userId = rows[0].id;
+
+    // Issue JWT token
+    const token = jwt.sign({ userId, email, prenom, nom }, JWT_SECRET, { expiresIn: '7d' });
+    res.status(201).json({ success: true, token, user: { id: userId, prenom, nom, email, ville } });
+  } catch (err) {
+    console.error('[/register] error:', err);
+    res.status(500).json({ success: false, error: "Échec de l'inscription" });
+  }
+});
+
+// POST /login – authenticate user
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ success: false, error: 'Email et mot de passe requis' });
+  }
+
+  try {
+    const userRes = await pool.query(
+      'SELECT id, prenom, nom, mot_de_passe, ville FROM public.utilisateur WHERE email = $1',
+      [email]
+    );
+
+    if (userRes.rowCount === 0) {
+      return res.status(401).json({ success: false, error: 'Identifiants invalides' });
+    }
+
+    const { id, prenom, nom, mot_de_passe: hash, ville } = userRes.rows[0];
+    const match = await bcrypt.compare(password, hash);
+
+    if (!match) {
+      return res.status(401).json({ success: false, error: 'Identifiants invalides' });
+    }
+
+    const token = jwt.sign({ userId: id, email, prenom, nom }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ success: true, token, user: { id, prenom, nom, email, ville } });
+  } catch (err) {
+    console.error('[/login] error:', err);
+    res.status(500).json({ success: false, error: 'Échec de connexion' });
+  }
+});
+
+// ------------------------------------------------------------------
+// IMAGE ROUTES (unchanged)
+// ------------------------------------------------------------------
+
+// POST /upload → classify image, store metadata, history
+app.post('/upload', upload.single('image'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'Aucun fichier téléchargé' });
+  }
+
+  const localPath  = `/uploads/${req.file.filename}`;
+  const imagePath  = path.join(UPLOADS_DIR, req.file.filename);
   const { annotation, location, date } = req.body;
 
   let pythonLabel, pyFeat;
 
+  // Call Flask for classification
   try {
     const form = new FormData();
     form.append('image', fs.createReadStream(imagePath));
@@ -83,11 +174,12 @@ app.post('/upload', upload.single('image'), async (req, res) => {
     pyFeat      = json.features;
   } catch (err) {
     console.error('[/upload] classification error:', err);
-    return res.status(502).json({ success: false, error: 'Image classification failed' });
+    return res.status(502).json({ success: false, error: "Classification d'image impossible" });
   }
 
+  // Insert into DB
   try {
-    // 1. Insert image features
+    // 1. image_features
     const insertImageSQL = `
       INSERT INTO public.image_features
         (path, file_size_kb, width, height, mean_r, mean_g, mean_b)
@@ -106,7 +198,7 @@ app.post('/upload', upload.single('image'), async (req, res) => {
     const imageResult = await pool.query(insertImageSQL, imageParams);
     const imageId = imageResult.rows[0]?.id;
 
-    // 2. Insert into history
+    // 2. image_history
     const insertHistorySQL = `
       INSERT INTO public.image_history
         (image_id, path, created_at, annotation, location, label)
@@ -121,17 +213,19 @@ app.post('/upload', upload.single('image'), async (req, res) => {
       pythonLabel
     ]);
   } catch (err) {
-    console.error("[/upload] DB insert error:", err);
+    console.error('[ /upload ] DB insert error:', err);
+    // Do not fail the request if DB insert fails
   }
 
   res.json({
-    success: true,
+    success:  true,
     imageUrl: localPath,
-    label: pythonLabel,
+    label:    pythonLabel,
     features: pyFeat
   });
 });
 
+// GET /history → latest 100 images
 app.get('/history', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -142,12 +236,12 @@ app.get('/history', async (req, res) => {
     `);
     res.json(result.rows);
   } catch (err) {
-    console.error("[/history] DB error:", err);
+    console.error('[/history] DB error:', err);
     res.status(500).json({ success: false, error: 'Erreur de lecture de la base' });
   }
 });
 
-
+// ── START SERVER ─────────────────────────────────────────────────
 app.listen(PORT, () =>
   console.log(`Server running on http://localhost:${PORT}`)
 );
