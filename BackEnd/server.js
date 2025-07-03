@@ -243,6 +243,23 @@ app.get('/history', async (req, res) => {
 });
 
 
+// Middleware: vérifie le JWT présent dans l'en‑tête Authorization: Bearer <token>
+function auth(req, res, next) {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1]; // "Bearer <token>"
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'Token manquant' });
+  }
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    req.user = payload; // { userId, email, prenom, nom, iat, exp }
+    next();
+  } catch (err) {
+    return res.status(401).json({ success: false, error: 'Token invalide' });
+  }
+}
+
+
 app.get('/me/city', auth, async (req, res) => {
   try {
     const result = await pool.query(
