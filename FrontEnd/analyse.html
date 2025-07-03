@@ -55,8 +55,13 @@
       <p class="fw-bold">Aperçu :</p>
       <img id="preview" class="img-fluid border">
       <div class="mt-2">
-        <button type="button" id="btnPleine" class="btn btn-outline-success me-2">Annoter : Pleine</button>
-        <button type="button" id="btnVide"   class="btn btn-outline-secondary">Annoter : Vide</button>
+        <button type="button" id="btnPleine" class="btn btn-outline-success me-2">
+          Annoter : Pleine
+        </button>
+
+        <button type="button" id="btnVide"  class="btn btn-outline-success">
+          Annoter : Vide
+        </button>
       </div>
     </div>
 
@@ -225,6 +230,30 @@
       console.error(err);
       historyTable.innerHTML = '<tr><td colspan="6">Erreur de chargement</td></tr>';
     }
+  });
+
+  const btnPleine = document.getElementById('btnPleine');
+  const btnVide   = document.getElementById('btnVide');
+
+  /* Change la couleur du bouton sélectionné */
+  function setActive(selected, other) {
+    selected.classList.remove('btn-outline-success');
+    selected.classList.add   ('btn-success', 'text-white');
+
+    other.classList.remove   ('btn-success', 'text-white');
+    other.classList.add      ('btn-outline-success');
+  }
+
+  /* Quand on clique sur Pleine */
+  btnPleine.addEventListener('click', () => {
+    showQuestionnaire('Pleine');
+    setActive(btnPleine, btnVide);
+  });
+
+  /* Quand on clique sur Vide */
+  btnVide.addEventListener('click', () => {
+    showQuestionnaire('Vide');
+    setActive(btnVide, btnPleine);
   });
 </script>
 </body>
