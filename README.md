@@ -1,4 +1,4 @@
-# 🗑️ TrashAI – Smart Waste Container Monitoring
+# 🗑️ BinWatch – Smart Waste Container Monitoring
 
 A full-stack web platform that detects whether public trash containers are **full or empty using only a photo**. Built for the smart-city space, the system uses lightweight python code to bring real-time visibility into waste bin usage.
 

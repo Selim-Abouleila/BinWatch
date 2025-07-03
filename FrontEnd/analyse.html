@@ -144,20 +144,36 @@
     detailsContainer.classList.remove('d-none');
     analyzeButton.classList.remove('d-none');
   }
-  document.getElementById('btnPleine').onclick = ()=>showQuestionnaire('Pleine');
-  document.getElementById('btnVide'  ).onclick = ()=>showQuestionnaire('Vide');
+  window.addEventListener('load', () => {
+    document.getElementById('btnPleine')
+            .addEventListener('click', () => showQuestionnaire('Pleine'));
+
+    document.getElementById('btnVide')
+            .addEventListener('click', () => showQuestionnaire('Vide'));
+  });
 
   function updateHistoryTable(list){
     historyTable.innerHTML = '';
-    list.forEach(({annotation,location,date,imagePath,label})=>{
-      historyTable.insertAdjacentHTML('beforeend',`
+    list.forEach(({ annotation, location, date, imagePath, label }) => {
+
+      // on encode chaque segment du chemin pour échapper espaces, (), etc.
+      const imgSrc = imagePath
+              .split('/')                     // ['', 'uploads', 'nom fichier…']
+              .map(seg => encodeURIComponent(seg))
+              .join('/');                     // '/uploads/nom%20fichier%20%281%29.jpg'
+
+      historyTable.insertAdjacentHTML('beforeend', `
       <tr>
-        <td><img src="${imagePath}" class="thumbnail img-thumbnail"></td>
-        <td>${date}</td><td>${annotation}</td><td>${location}</td>
-        <td>${imagePath}</td><td>${label}</td>
+        <td><img src="${imgSrc}" class="thumbnail img-thumbnail"></td>
+        <td>${date}</td>
+        <td>${annotation}</td>
+        <td>${location}</td>
+        <td>${imagePath}</td>          <!-- on affiche le chemin brut -->
+        <td>${label}</td>
       </tr>`);
     });
   }
+
 
   document.getElementById('uploadForm').addEventListener('submit', async e=>{
     e.preventDefault();
