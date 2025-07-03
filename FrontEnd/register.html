@@ -54,6 +54,10 @@
       <input type="email" class="form-control" id="email" name="email" required>
     </div>
     <div class="mb-3">
+      <label for="ville" class="form-label">Ville</label>
+      <input type="text" class="form-control" id="ville" required>
+    </div>
+    <div class="mb-3">
       <label for="password" class="form-label">Mot de passe</label>
       <input type="password" class="form-control" id="password" name="password" required minlength="6">
     </div>
@@ -61,6 +65,7 @@
       <label for="confirm-password" class="form-label">Confirmer le mot de passe</label>
       <input type="password" class="form-control" id="confirm-password" required>
     </div>
+
     <button type="submit" class="btn btn-success w-100">S'inscrire</button>
   </form>
 
@@ -91,6 +96,7 @@
     const prenom   = document.getElementById('prenom').value.trim();
     const nom      = document.getElementById('nom').value.trim();
     const email    = document.getElementById('email').value.trim();
+    const ville    = document.getElementById('city').value.trim();
     const password = document.getElementById('password').value;
     const confirm  = document.getElementById('confirm-password').value;
 
@@ -103,7 +109,7 @@
       const res = await fetch('/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prenom, nom, email, password })
+        body: JSON.stringify({ prenom, nom, email, ville, password })
       });
       const data = await res.json();
 
