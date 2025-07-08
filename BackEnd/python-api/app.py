@@ -97,13 +97,15 @@ def auto_rule(feat: dict, arr_bgr: np.ndarray, seuils=None) -> str:
 # ➖➖➖ DATA ➖➖➖
 def get_latest_seuils():
     try:
-        conn = psycopg2.connect(os.getenv("DATABASE_URL"))
+        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
         cur = conn.cursor()
         cur.execute("SELECT * FROM seuils ORDER BY id DESC LIMIT 1")
         row = cur.fetchone()
         cur.close()
         conn.close()
+
         if row:
+            # suppose que l’ordre est bien (id, taille_ko, ground_ratio, entropy, contrast, dark_pixel_ratio)
             return {
                 "taille_ko": row[1],
                 "ground_ratio": row[2],
@@ -112,9 +114,10 @@ def get_latest_seuils():
                 "dark_pixel_ratio": row[5],
             }
         else:
+            print("[INFO] Aucun seuil en base — valeurs par défaut utilisées")
             return SEUILS_DEFAULTS
     except Exception as e:
-        print("Erreur DB get_latest_seuils:", e)
+        print("!!! ERREUR get_latest_seuils:", e)
         return SEUILS_DEFAULTS
 
 def save_feature_record(feat):
@@ -245,10 +248,13 @@ def serve(fname):
 @app.route("/api/seuils", methods=["GET"])
 def api_get_seuils():
     try:
+        print(">>> Appel de /api/seuils")
         seuils = get_latest_seuils()
+        print(">>> Seuils récupérés :", seuils)
         return jsonify(seuils)
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        print("!!! ERREUR /api/seuils :", e)
+        return jsonify({"error": "Erreur proxy seuils"}), 500
 
 
 @app.route("/features", methods=["GET"])
