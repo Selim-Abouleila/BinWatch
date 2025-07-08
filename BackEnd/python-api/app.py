@@ -8,6 +8,9 @@ from sklearn.metrics import accuracy_score
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
+psycopg2.extensions.register_adapter(np.float64, psycopg2.extensions.Float)
+psycopg2.extensions.register_adapter(np.int64,   psycopg2.extensions.AsIs)
+
 conn = psycopg2.connect(os.environ.get("DATABASE_URL"), sslmode='require')
 BASE_DIR = pathlib.Path(__file__).parent.resolve()
 DATA_DIR = BASE_DIR / "data"
@@ -45,22 +48,29 @@ def get_contrast(img):
 def basic_features(arr_bgr, size_bytes, name):
     h, w = arr_bgr.shape[:2]
     b, g, r = cv2.mean(arr_bgr)[:3]
-    hsv = cv2.cvtColor(arr_bgr, cv2.COLOR_BGR2HSV)
+
     gray = cv2.cvtColor(arr_bgr, cv2.COLOR_BGR2GRAY)
-    entropy_val = float(cv2.calcHist([gray], [0], None, [256], [0, 256]).flatten().var())
+    entropy_val = cv2.calcHist([gray], [0], None, [256], [0, 256]).flatten().var()
+
     pil = Image.fromarray(cv2.cvtColor(arr_bgr, cv2.COLOR_BGR2RGB))
     arr_gray = np.array(pil.convert("L"))
-    dark_ratio = np.sum(arr_gray < 80) / arr_gray.size
+
+    dark_ratio   = np.sum(arr_gray < 80) / arr_gray.size
     contrast_val = get_contrast(pil)
 
     return dict(
-        filename=name, width=w, height=h,
-        size_kb=round(size_bytes/1024, 2),
-        avg_r=round(r, 1), avg_g=round(g, 1), avg_b=round(b, 1),
-        entropy=round(entropy_val, 2),
-        contrast=round(contrast_val, 2),
-        dark_pixel_ratio=round(dark_ratio, 3)
+        filename           = name,
+        width              = int(w),
+        height             = int(h),
+        size_kb            = float(round(size_bytes / 1024, 2)),
+        avg_r              = float(round(r, 1)),
+        avg_g              = float(round(g, 1)),
+        avg_b              = float(round(b, 1)),
+        entropy            = float(round(entropy_val, 2)),
+        contrast           = float(round(contrast_val, 2)),
+        dark_pixel_ratio   = float(round(dark_ratio, 3)),
     )
+
 
 # ➖➖➖ DETECTION ➖➖➖
 def plast_mask_ratio(arr_bgr: np.ndarray) -> float:
