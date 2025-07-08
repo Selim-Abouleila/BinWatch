@@ -130,6 +130,7 @@ def reoptimise_thresholds():
     seuils_contrast  = [40, 45, 50, 55, 60, 65, 70, 75, 80, 85]
     seuils_dark      = [0.2, 0.225, 0.25, 0.275, 0.3, 0.325, 0.35, 0.375, 0.4, 0.425]
 
+
     best_score, best = 0, SEUILS
     for t in seuils_taille:
         for d in seuils_gr:
@@ -160,6 +161,7 @@ def reoptimise_thresholds():
 
     save_seuils_in_db(best)
     SEUILS.update(best)
+
 
 def save_seuils_in_db(best):
     with conn.cursor() as cur:
@@ -263,10 +265,12 @@ def get_history():
 
 @app.route("/api/seuils/reset", methods=["POST"])
 def reset_seuils():
-    SEUILS.clear()
-    SEUILS.update(SEUILS_DEFAULTS)
-    json.dump(SEUILS, SEUIL_PATH.open("w"), indent=2)
-    return jsonify(success=True, seuils=SEUILS)
+    try:
+        save_seuils_in_db(SEUILS_DEFAULTS)
+        SEUILS.update(SEUILS_DEFAULTS)
+        return jsonify(success=True, seuils=SEUILS)
+    except Exception as e:
+        return jsonify(success=False, error=str(e)), 500
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="::", port=port, debug=True)
