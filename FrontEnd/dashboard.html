@@ -164,6 +164,27 @@
 </div>
 
 <script>
+    (function () {
+        const btn          = document.getElementById('accountBtn');
+        const dashItem     = document.getElementById('dashboardNav');
+        const token        = localStorage.getItem('token');
+
+        if (token) {
+            btn.textContent = 'Déconnexion';
+            btn.href        = '#';
+            dashItem.classList.remove('d-none');
+            btn.addEventListener('click', e => {
+                e.preventDefault();
+                localStorage.removeItem('token');
+                location.href = 'login.html'; // Redirect to login page after logout
+            });
+        } else {
+            btn.textContent = 'Connexion';
+            btn.href        = 'login.html';
+            dashItem.classList.add('d-none');
+        }
+    })();
+
     const today = new Date();
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     const formattedDate = today.toLocaleDateString('fr-FR', options);
