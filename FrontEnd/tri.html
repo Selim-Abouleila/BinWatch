@@ -59,7 +59,8 @@
         </div>
         <div class="col-md-2">
             <label class="form-label">Localisation</label>
-            <input type="text" class="form-control" name="localisation" placeholder="Ville, quartier...">
+            <input type="text" class="form-control" name="localisation" id="localisation" list="localisation-list" placeholder="Ville, quartier...">
+            <datalist id="localisation-list"></datalist>
         </div>
         <div class="col-md-2">
             <label class="form-label">Ordre</label>
@@ -96,6 +97,27 @@ function filterImages(images, filters) {
         return true;
     });
 }
+
+const localisationInput = document.getElementById('localisation');
+const localisationList = document.getElementById('localisation-list');
+
+localisationInput.addEventListener('input', function() {
+    const query = this.value;
+    if (query.length < 3) {
+        localisationList.innerHTML = '';
+        return;
+    }
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5`)
+        .then(res => res.json())
+        .then(data => {
+            localisationList.innerHTML = '';
+            data.forEach(place => {
+                const option = document.createElement('option');
+                option.value = place.display_name;
+                localisationList.appendChild(option);
+            });
+        });
+});
 
 // Tri
 function sortImages(images, order) {
