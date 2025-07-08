@@ -251,8 +251,6 @@ def update_seuils():
     except Exception as e:
         return jsonify(success=False, error=str(e)), 500
 
-    # Ne pas modifier SEUILS global, juste renvoyer les seuils reçus
-    return jsonify(success=True, seuils=data)
 @app.route("/history", methods=["GET"])
 def get_history():
     try:
