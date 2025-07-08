@@ -274,6 +274,16 @@ app.get('/me/city', auth, async (req, res) => {
   }
 });
 
+app.use('/api/seuils', async (req, res) => {
+  try {
+    const flaskRes = await fetch(`${FLASK_URL}/api/seuils`);
+    const json = await flaskRes.json();
+    res.json(json);
+  } catch (e) {
+    console.error('[Proxy] Erreur proxy seuils :', e);
+    res.status(500).json({ error: 'Erreur proxy seuils' });
+  }
+});
 
 app.get('/history/by-city', auth, async (req, res) => {
   try {

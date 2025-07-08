@@ -6,173 +6,224 @@ from PIL import Image, ImageStat
 import numpy as np, cv2                   # opencv-python-headless
 from sklearn.metrics import accuracy_score
 
-BASE_DIR    = pathlib.Path(__file__).parent.resolve()
-DATA_DIR    = BASE_DIR / "data"
-IMG_DIR     = DATA_DIR / "images"
+BASE_DIR = pathlib.Path(__file__).parent.resolve()
+DATA_DIR = BASE_DIR / "data"
+IMG_DIR  = DATA_DIR / "images"
 IMG_DIR.mkdir(parents=True, exist_ok=True)
 
-FEAT_PATH   = DATA_DIR / "features.json"
-SEUIL_PATH  = DATA_DIR / "seuils.json"
+FEAT_PATH = DATA_DIR / "features.json"
+SEUIL_PATH = DATA_DIR / "seuils.json"
 
 app = Flask(__name__)
 
 # ➖➖➖ INIT SEUILS ➖➖➖
-SEUILS = {
-    "taille_ko":         250,
-    "ground_ratio":      0.08,
-    "entropy":           5.5,
-    "contrast":          30.0,
-    "dark_pixel_ratio":  0.2
+SEUILS_DEFAULTS = {
+    "taille_ko": 319.4,
+    "ground_ratio": 0.23,
+    "entropy": 5048.8,
+    "contrast": 75.33,
+    "dark_pixel_ratio": 0.31
 }
+SEUILS = SEUILS_DEFAULTS.copy()
 if SEUIL_PATH.exists():
     SEUILS.update(json.load(SEUIL_PATH.open()))
 
-# ── FONCTIONS UTILITAIRES ──────────────────────────────────────────
+# ➖➖➖ UTILS ➖➖➖
 def load_resized(stream: bytes, max_side=1024):
-    """Charge une image en mémoire, la réduit si nécessaire."""
     pil = Image.open(io.BytesIO(stream)).convert("RGB")
     pil.thumbnail((max_side, max_side))
     arr = cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
     return pil, arr
 
-def get_contrast(img: Image.Image) -> float:
+def get_contrast(img):
     stat = ImageStat.Stat(img)
     return sum(stat.stddev) / 3
 
 def basic_features(arr_bgr, size_bytes, name):
-    """Extrait les caractéristiques de base d’une image."""
-    h, w      = arr_bgr.shape[:2]
-    size_kb    = round(size_bytes / 1024, 2)
-    b, g, r    = cv2.mean(arr_bgr)[:3]
-    pil        = Image.fromarray(cv2.cvtColor(arr_bgr, cv2.COLOR_BGR2RGB))
-    entropy_val  = round(ImageStat.Stat(pil).entropy(), 2)
-    contrast_val = round(get_contrast(pil), 2)
-    gray         = cv2.cvtColor(arr_bgr, cv2.COLOR_BGR2GRAY)
-    dark_ratio   = round(np.sum(gray < 80) / gray.size, 3)
-    # ground_ratio à ajouter si nécessaire…
-    return {
-        "filename":         name,
-        "width":            w,
-        "height":           h,
-        "size_kb":          size_kb,
-        "avg_r":            round(r,1),
-        "avg_g":            round(g,1),
-        "avg_b":            round(b,1),
-        "entropy":          entropy_val,
-        "contrast":         contrast_val,
-        "dark_pixel_ratio": dark_ratio,
-        # "ground_ratio":    ground_ratio,
-    }
+    h, w = arr_bgr.shape[:2]
+    b, g, r = cv2.mean(arr_bgr)[:3]
+    hsv = cv2.cvtColor(arr_bgr, cv2.COLOR_BGR2HSV)
+    gray = cv2.cvtColor(arr_bgr, cv2.COLOR_BGR2GRAY)
+    entropy_val = float(cv2.calcHist([gray], [0], None, [256], [0, 256]).flatten().var())
+    pil = Image.fromarray(cv2.cvtColor(arr_bgr, cv2.COLOR_BGR2RGB))
+    arr_gray = np.array(pil.convert("L"))
+    dark_ratio = np.sum(arr_gray < 80) / arr_gray.size
+    contrast_val = get_contrast(pil)
 
-def auto_rule(feat, arr_bgr):
-    """Décide “pleine” ou “vide” selon les SEUILS."""
+    return dict(
+        filename=name, width=w, height=h,
+        size_kb=round(size_bytes/1024, 2),
+        avg_r=round(r, 1), avg_g=round(g, 1), avg_b=round(b, 1),
+        entropy=round(entropy_val, 2),
+        contrast=round(contrast_val, 2),
+        dark_pixel_ratio=round(dark_ratio, 3)
+    )
+
+# ➖➖➖ DETECTION ➖➖➖
+def plast_mask_ratio(arr_bgr: np.ndarray) -> float:
+    hsv = cv2.cvtColor(arr_bgr, cv2.COLOR_BGR2HSV)
+    white = cv2.inRange(hsv, (0,   0, 200), (180, 40, 255))
+    vivid = cv2.inRange(hsv, (0,  80, 130), (180,255,255))
+    brown = cv2.inRange(hsv, (5,  40,  40), (25,210,255))
+    black = cv2.inRange(hsv, (0,   0,   0), (180, 50, 60))
+    mask = white | vivid | brown | black
+    soil = cv2.inRange(hsv, (15,  0, 40), (100, 80,255))
+    mask = cv2.bitwise_and(mask, cv2.bitwise_not(soil))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,
+             cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5)))
+    return mask.sum() / 255 / mask.size
+
+def auto_rule(feat: dict, arr_bgr: np.ndarray, seuils=None) -> str:
+    if seuils is None:
+        seuils = SEUILS
+
+    h = arr_bgr.shape[0]
+    ground_slice = arr_bgr[int(h * 0.55):, :]
+    gr = plast_mask_ratio(ground_slice)
+    feat["ground_ratio"] = round(gr, 4)
+
     score = 0
-    if feat["size_kb"]            > SEUILS["taille_ko"]:        score += 1
-    if feat.get("ground_ratio",0) > SEUILS["ground_ratio"]:     score += 1
-    if feat["entropy"]            > SEUILS["entropy"]:           score += 1
-    if feat["contrast"]           < SEUILS["contrast"]:          score += 1
-    if feat["dark_pixel_ratio"]   > SEUILS["dark_pixel_ratio"]:  score += 1
+    if feat["size_kb"] > seuils["taille_ko"]: score += 1
+    if feat["ground_ratio"] > seuils["ground_ratio"]: score += 1
+    if feat["entropy"] > seuils["entropy"]: score += 1
+    if feat["contrast"] < seuils["contrast"]: score += 1
+    if feat["dark_pixel_ratio"] > seuils["dark_pixel_ratio"]: score += 1
+
     return "pleine" if score >= 3 else "vide"
 
+# ➖➖➖ DATA ➖➖➖
 def save_feature_record(feat):
-    """Sauvegarde l’historique dans features.json."""
-    all_feats = json.load(FEAT_PATH.open()) if FEAT_PATH.exists() else []
+    all_feats = []
+    if FEAT_PATH.exists():
+        all_feats = json.load(FEAT_PATH.open())
     all_feats.append(feat)
     json.dump(all_feats, FEAT_PATH.open("w"), indent=2)
 
 def reoptimise_thresholds():
-    """(Optionnel) Réoptimise automatiquement les SEUILS selon l’historique."""
-    if not FEAT_PATH.exists():
-        return
+    if not FEAT_PATH.exists(): return
     data = json.load(FEAT_PATH.open())
-    # … votre algorithme de ré-optimisation …
-    # json.dump(nouveaux_seuils, SEUIL_PATH.open("w"), indent=2)
-    # SEUILS.update(nouveaux_seuils)
+    seuils_taille   = [200, 300, 400, 500]
+    seuils_gr       = [0.1, 0.2, 0.25, 0.3]
+    seuils_entropy  = [4000, 4500, 5000, 5500, 6000]
+    seuils_contrast = [40, 50, 60, 70, 80]
+    seuils_dark     = [0.2, 0.25, 0.3, 0.35, 0.4]
 
-def process(stream: bytes, filename: str):
-    """Pipeline complet : resize, features, auto-label, save."""
+    best_score, best = 0, SEUILS
+    for t in seuils_taille:
+        for d in seuils_gr:
+            for e in seuils_entropy:
+                for c in seuils_contrast:
+                    for dk in seuils_dark:
+                        y_pred = []
+                        for f in data:
+                            score = 0
+                            if f["size_kb"] > t: score += 1
+                            if f.get("ground_ratio", 0) > d: score += 1
+                            if f.get("entropy", 0) > e: score += 1
+                            if f.get("contrast", 100) < c: score += 1
+                            if f.get("dark_pixel_ratio", 0) > dk: score += 1
+                            y_pred.append("pleine" if score >= 3 else "vide")
+
+                        y_true = [f["label_auto"] for f in data]
+                        score_val = accuracy_score(y_true, y_pred)
+                        if score_val > best_score:
+                            best_score = score_val
+                            best = {
+                                "taille_ko": t,
+                                "ground_ratio": d,
+                                "entropy": e,
+                                "contrast": c,
+                                "dark_pixel_ratio": dk
+                            }
+
+    json.dump(best, SEUIL_PATH.open("w"), indent=2)
+    SEUILS.update(best)
+
+# ➖➖➖ COEUR ➖➖➖
+def process(stream: bytes, orig_name: str, seuils=None):
+    ts = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    name = f"{ts}_{orig_name}"
+    path = IMG_DIR / name
+    path.write_bytes(stream)
+
     pil, arr = load_resized(stream)
-    size_kb  = round(len(stream) / 1024, 2)
-    feat     = basic_features(arr, len(stream), filename)
-
-    # Label automatique
-    feat["label_auto"] = auto_rule(feat, arr)
-
-    # Enregistrement historique
+    feat = basic_features(arr, path.stat().st_size, name)
+    feat["label_auto"] = auto_rule(feat, arr, seuils)
     save_feature_record(feat)
+    return name, feat
 
-    # Sauvegarde de l’image
-    path = IMG_DIR / filename
-    with open(path, "wb") as f:
-        f.write(stream)
-
-    return filename, feat
-
-# ── ROUTES ─────────────────────────────────────────────────────────
+# ➖➖➖ ROUTES ➖➖➖
 @app.route("/upload", methods=["POST"])
 def upload():
     if "image" not in request.files:
         return jsonify(success=False, error="Aucun fichier"), 400
+
+    # récupération des seuils si envoyés
+    seuils_str = request.form.get("seuils")
+    seuils = json.loads(seuils_str) if seuils_str else None
+    annotation = request.form.get("annotation")
+    location   = request.form.get("location")
+    date       = request.form.get("date")
     name, feat = process(request.files["image"].read(),
-                         request.files["image"].filename)
+                         request.files["image"].filename,
+                         seuils=seuils)
+    feat["annotation"] = annotation
+    feat["location"] = location
+    feat["created_at"] = date
+
     return jsonify(success=True, image_url=f"/images/{name}", features=feat)
 
-@app.route("/seuils", methods=["GET"])
-def get_seuils():
-    """Renvoie les seuils actuels pour pré-remplir le formulaire."""
-    return jsonify(success=True, seuils=SEUILS)
-
-@app.route("/seuils", methods=["POST"])
-def set_seuils():
-    """Reçoit et enregistre les nouveaux seuils choisis par l’utilisateur."""
-    data = request.get_json() or {}
-    for k in SEUILS:
-        if k in data:
-            SEUILS[k] = data[k]
-    json.dump(SEUILS, SEUIL_PATH.open("w"), indent=2)
-    return jsonify(success=True, seuils=SEUILS)
-
-@app.route("/stats", methods=["GET"])
-def get_stats():
-    """
-    Renvoie pour chaque seuil (taille_ko, entropy, contrast, etc.)
-    les stats min/max/moyenne calculées sur features.json.
-    """
-    if not FEAT_PATH.exists():
-        empty = {k: {"min": 0, "max": 0, "mean": 0} for k in SEUILS}
-        return jsonify(success=True, stats=empty)
-    feats = json.load(FEAT_PATH.open())
-    mapping = {
-        "taille_ko":        "size_kb",
-        "ground_ratio":     "ground_ratio",
-        "entropy":          "entropy",
-        "contrast":         "contrast",
-        "dark_pixel_ratio": "dark_pixel_ratio"
-    }
-    stats = {}
-    for seuil_key, feat_key in mapping.items():
-        vals = [f.get(feat_key, 0) for f in feats if feat_key in f]
-        if vals:
-            stats[seuil_key] = {
-                "min":  round(min(vals), 2),
-                "max":  round(max(vals), 2),
-                "mean": round(sum(vals) / len(vals), 2)
-            }
-        else:
-            stats[seuil_key] = {"min": 0, "max": 0, "mean": 0}
-    return jsonify(success=True, stats=stats)
 
 @app.route("/classify", methods=["POST"])
 def classify_endpoint():
     if "image" not in request.files:
         return jsonify(success=False, error="Aucun fichier"), 400
-    _, feat = process(request.files["image"].read(), "tmp.jpg")
+
+    seuils = request.form.get("seuils")
+    seuils = json.loads(seuils) if seuils else None
+
+    _, feat = process(request.files["image"].read(), "tmp.jpg", seuils)
     return jsonify(success=True, label=feat["label_auto"], features=feat)
 
 @app.route("/images/<path:fname>")
 def serve(fname):
     return send_from_directory(IMG_DIR, fname)
+@app.route("/api/seuils", methods=["GET"])
+def api_get_seuils():
+    return jsonify(dict(SEUILS))  # cast pour éviter des erreurs de typage
 
+
+@app.route("/features", methods=["GET"])
+def get_features():
+    try:
+        with open("data/features.json", "r") as f:
+            return jsonify(json.load(f))
+    except:
+        return jsonify([])
+@app.route("/api/seuils", methods=["POST"])
+def update_seuils():
+    data = request.get_json()
+    if not data:
+        return jsonify(success=False, error="Aucune donnée reçue"), 400
+
+    # Ne pas modifier SEUILS global, juste renvoyer les seuils reçus
+    return jsonify(success=True, seuils=data)
+@app.route("/history", methods=["GET"])
+def get_history():
+    try:
+        if not os.path.exists("data/history.json"):
+            return jsonify([])
+        with open("data/history.json", "r") as f:
+            return jsonify(json.load(f))
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/seuils/reset", methods=["POST"])
+def reset_seuils():
+    SEUILS.clear()
+    SEUILS.update(SEUILS_DEFAULTS)
+    json.dump(SEUILS, SEUIL_PATH.open("w"), indent=2)
+    return jsonify(success=True, seuils=SEUILS)
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="::", port=port, debug=True)
