@@ -178,10 +178,6 @@
                 localStorage.removeItem('token');
                 location.href = 'login.html'; // Redirect to login page after logout
             });
-        } else {
-            btn.textContent = 'Connexion';
-            btn.href        = 'login.html';
-            dashItem.classList.add('d-none');
         }
     })();
 
@@ -852,62 +848,67 @@
 
     window.addEventListener('load', displayWeeklyWeatherCharts);
 
-    async function displayPopulation() {
-        const cityCodeMap = {
-            'Paris': '75056',
-            'Marseille': '13055',
-            'Lyon': '69123',
-            'Toulouse': '31555',
-            'Nice': '06088',
-            'Nantes': '44109',
-            'Strasbourg': '67482',
-            'Montpellier': '34172',
-            'Bordeaux': '33063',
-            'Lille': '59350',
-            'Rennes': '35238',
-            'Reims': '51454',
-            'Le Havre': '76351',
-            'Saint-Étienne': '42218',
-            'Toulon': '83137',
-            'Angers': '49007',
-            'Grenoble': '38185',
-            'Dijon': '21231',
-            'Nîmes': '30189',
-            'Aix-en-Provence': '13001'
-        };
-
-        const city = currentCity || 'Paris';
-        const cityCode = cityCodeMap[city];
-
-        if (!cityCode) {
-            const totalPopulationElement = document.getElementById('totalPopulation');
-            totalPopulationElement.textContent = `Il n'y a pas de données de population pour ${city}.`;
+    document.addEventListener('DOMContentLoaded', () => {
+        const totalPopulationElement = document.getElementById('totalPopulation');
+        if (!totalPopulationElement) {
+            console.error('Element with id "totalPopulation" not found.');
             return;
         }
 
-        const apiUrl = `https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/population-francaise-communes/records?select=population_totale&where=code_insee_commune%20%3D%20${cityCode}&limit=100&refine=annee_recensement%3A"2016"`;
+        async function displayPopulation() {
+            const cityCodeMap = {
+                'Paris': '75056',
+                'Marseille': '13055',
+                'Lyon': '69123',
+                'Toulouse': '31555',
+                'Nice': '06088',
+                'Nantes': '44109',
+                'Strasbourg': '67482',
+                'Montpellier': '34172',
+                'Bordeaux': '33063',
+                'Lille': '59350',
+                'Rennes': '35238',
+                'Reims': '51454',
+                'Le Havre': '76351',
+                'Saint-Étienne': '42218',
+                'Toulon': '83137',
+                'Angers': '49007',
+                'Grenoble': '38185',
+                'Dijon': '21231',
+                'Nîmes': '30189',
+                'Aix-en-Provence': '13001'
+            };
 
-        try {
-            const response = await fetch(apiUrl);
-            if (!response.ok) {
-                throw new Error(`Failed to fetch data from the API. Status: ${response.status}`);
+            const city = currentCity || 'Paris';
+            const cityCode = cityCodeMap[city];
+
+            if (!cityCode) {
+                totalPopulationElement.textContent = `Il n'y a pas de données de population pour ${city}.`;
+                return;
             }
 
-            const data = await response.json();
-            const results = data.results;
+            const apiUrl = `https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/population-francaise-communes/records?select=population_totale&where=code_insee_commune%20%3D%20${cityCode}&limit=100&refine=annee_recensement%3A"2016"`;
 
-            const totalPopulation = results.reduce((sum, record) => sum + (record.population_totale || 0), 0);
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch data from the API. Status: ${response.status}`);
+                }
 
-            const totalPopulationElement = document.getElementById('totalPopulation');
-            totalPopulationElement.textContent = `Il y a ${totalPopulation.toLocaleString()} habitants à ${city}.`;
-        } catch (error) {
-            console.error('Error fetching or processing data:', error);
-            const totalPopulationElement = document.getElementById('totalPopulation');
-            totalPopulationElement.textContent = `Erreur : ${error.message}`;
+                const data = await response.json();
+                const results = data.results;
+
+                const totalPopulation = results.reduce((sum, record) => sum + (record.population_totale || 0), 0);
+
+                totalPopulationElement.textContent = `Il y a ${totalPopulation.toLocaleString()} habitants à ${city}.`;
+            } catch (error) {
+                console.error('Error fetching or processing data:', error);
+                totalPopulationElement.textContent = `Erreur : ${error.message}`;
+            }
         }
-    }
 
-    displayPopulation();
+        displayPopulation();
+    });
 
 </script>
 </body>
