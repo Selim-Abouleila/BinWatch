@@ -5,7 +5,10 @@ from flask import Flask, request, jsonify, send_from_directory
 from PIL import Image, ImageStat
 import numpy as np, cv2                   # opencv-python-headless
 from sklearn.metrics import accuracy_score
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
+conn = psycopg2.connect(os.environ.get("DATABASE_URL"), sslmode='require')
 BASE_DIR = pathlib.Path(__file__).parent.resolve()
 DATA_DIR = BASE_DIR / "data"
 IMG_DIR  = DATA_DIR / "images"
@@ -92,21 +95,40 @@ def auto_rule(feat: dict, arr_bgr: np.ndarray, seuils=None) -> str:
     return "pleine" if score >= 3 else "vide"
 
 # ➖➖➖ DATA ➖➖➖
+def get_latest_seuils():
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT * FROM seuils ORDER BY id DESC LIMIT 1")
+        row = cur.fetchone()
+        return dict(row) if row else SEUILS_DEFAULTS
 def save_feature_record(feat):
-    all_feats = []
-    if FEAT_PATH.exists():
-        all_feats = json.load(FEAT_PATH.open())
-    all_feats.append(feat)
-    json.dump(all_feats, FEAT_PATH.open("w"), indent=2)
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO features (
+                filename, width, height, size_kb,
+                avg_r, avg_g, avg_b, entropy,
+                contrast, dark_pixel_ratio, ground_ratio, label_auto
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        """, (
+            feat["filename"], feat["width"], feat["height"], feat["size_kb"],
+            feat["avg_r"], feat["avg_g"], feat["avg_b"], feat["entropy"],
+            feat["contrast"], feat["dark_pixel_ratio"], feat["ground_ratio"],
+            feat["label_auto"]
+        ))
+        conn.commit()
 
 def reoptimise_thresholds():
-    if not FEAT_PATH.exists(): return
-    data = json.load(FEAT_PATH.open())
-    seuils_taille   = [200, 300, 400, 500]
-    seuils_gr       = [0.1, 0.2, 0.25, 0.3]
-    seuils_entropy  = [4000, 4500, 5000, 5500, 6000]
-    seuils_contrast = [40, 50, 60, 70, 80]
-    seuils_dark     = [0.2, 0.25, 0.3, 0.35, 0.4]
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT * FROM features")
+        data = cur.fetchall()
+
+    if not data:
+        return
+
+    seuils_taille    = [200, 250, 300, 350, 400, 450, 500, 550, 600]
+    seuils_gr        = [0.1, 0.15, 0.2, 0.225, 0.25, 0.275, 0.3, 0.325, 0.35]
+    seuils_entropy   = [4000, 4250, 4500, 4750, 5000, 5250, 5500, 5750, 6000, 6250, 6500]
+    seuils_contrast  = [40, 45, 50, 55, 60, 65, 70, 75, 80, 85]
+    seuils_dark      = [0.2, 0.225, 0.25, 0.275, 0.3, 0.325, 0.35, 0.375, 0.4, 0.425]
 
     best_score, best = 0, SEUILS
     for t in seuils_taille:
@@ -136,8 +158,20 @@ def reoptimise_thresholds():
                                 "dark_pixel_ratio": dk
                             }
 
-    json.dump(best, SEUIL_PATH.open("w"), indent=2)
+    save_seuils_in_db(best)
     SEUILS.update(best)
+
+def save_seuils_in_db(best):
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO seuils (taille_ko, ground_ratio, entropy, contrast, dark_pixel_ratio)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (
+            best["taille_ko"], best["ground_ratio"], best["entropy"],
+            best["contrast"], best["dark_pixel_ratio"]
+        ))
+        conn.commit()
+
 
 # ➖➖➖ COEUR ➖➖➖
 def process(stream: bytes, orig_name: str, seuils=None):
@@ -150,6 +184,7 @@ def process(stream: bytes, orig_name: str, seuils=None):
     feat = basic_features(arr, path.stat().st_size, name)
     feat["label_auto"] = auto_rule(feat, arr, seuils)
     save_feature_record(feat)
+    reoptimise_thresholds()
     return name, feat
 
 # ➖➖➖ ROUTES ➖➖➖
@@ -160,7 +195,7 @@ def upload():
 
     # récupération des seuils si envoyés
     seuils_str = request.form.get("seuils")
-    seuils = json.loads(seuils_str) if seuils_str else None
+    seuils = json.loads(seuils_str) if seuils_str else get_latest_seuils()
     annotation = request.form.get("annotation")
     location   = request.form.get("location")
     date       = request.form.get("date")
@@ -179,8 +214,8 @@ def classify_endpoint():
     if "image" not in request.files:
         return jsonify(success=False, error="Aucun fichier"), 400
 
-    seuils = request.form.get("seuils")
-    seuils = json.loads(seuils) if seuils else None
+    seuils_str = request.form.get("seuils")
+    seuils = json.loads(seuils_str) if seuils_str else get_latest_seuils()
 
     _, feat = process(request.files["image"].read(), "tmp.jpg", seuils)
     return jsonify(success=True, label=feat["label_auto"], features=feat)
