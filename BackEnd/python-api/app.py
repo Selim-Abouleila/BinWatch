@@ -216,7 +216,7 @@ def process(stream: bytes, orig_name: str, seuils=None):
     feat = basic_features(arr, path.stat().st_size, name)
     feat["label_auto"] = auto_rule(feat, arr, seuils)
     save_feature_record(feat)
-    reoptimise_thresholds()
+    threading.Thread(target=reoptimise_thresholds, daemon=True).start()
     return name, feat
 
 # ➖➖➖ ROUTES ➖➖➖
