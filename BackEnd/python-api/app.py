@@ -117,6 +117,7 @@ def auto_rule(feat: dict, arr_bgr: np.ndarray, seuils=None) -> str:
 # ➖➖➖ DATA ➖➖➖
 def get_latest_seuils():
     conn = db_pool.getconn()
+    conn.autocommit = True
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM seuils ORDER BY id DESC LIMIT 1")
@@ -312,6 +313,7 @@ def serve(fname):
 def api_get_seuils():
     # 1) Borrow a connection from the pool
     conn = db_pool.getconn()
+    conn.autocommit = True
     try:
         # 2) Execute your query
         with conn.cursor() as cur:
@@ -344,6 +346,7 @@ def api_get_seuils():
 def get_features():
     # 1) Borrow a connection from the pool
     conn = db_pool.getconn()
+    conn.autocommit = True
     try:
         # 2) Execute the read within a cursor
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -382,6 +385,14 @@ def reset_seuils():
         return jsonify(success=True, seuils=SEUILS)
     except Exception as e:
         return jsonify(success=False, error=str(e)), 500
+
+
+@app.teardown_appcontext
+def close_db_pool(exception):
+    # this is called once per application‐context teardown (end of request or app shutdown)
+    db_pool.closeall()
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="::", port=port, debug=True)
