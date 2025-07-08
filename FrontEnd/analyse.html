@@ -279,16 +279,22 @@
     setActive(btnVide, btnPleine);
   });
   async function chargerSeuils() {
-    const res = await fetch("/api/seuils");
-    const seuils = await res.json();
-    const container = document.getElementById("seuilsInputs");
-    container.innerHTML = "";
-    for (const [key, val] of Object.entries(seuils)) {
-      container.innerHTML += `
-        <div class="mb-2">
-          <label class="form-label">${key}</label>
-          <input type="number" step="any" name="${key}" value="${val}" class="form-control" required>
-        </div>`;
+    try {
+      const res = await fetch("/api/seuils");
+      const seuils = await res.json();
+      if (!res.ok || seuils.error) throw new Error(seuils.error || "Erreur inconnue");
+
+      const container = document.getElementById("seuilsInputs");
+      container.innerHTML = "";
+      for (const [key, val] of Object.entries(seuils)) {
+        container.innerHTML += `
+          <div class="mb-2">
+            <label class="form-label">${key}</label>
+            <input type="number" step="any" name="${key}" value="${val}" class="form-control" required>
+          </div>`;
+      }
+    } catch (err) {
+      alert("Erreur de chargement des seuils : " + err.message);
     }
   }
 
