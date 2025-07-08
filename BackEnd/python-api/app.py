@@ -246,7 +246,7 @@ def classify_endpoint():
 def serve(fname):
     return send_from_directory(IMG_DIR, fname)
 
-@@app.route("/api/seuils", methods=["GET"])
+@app.route("/api/seuils", methods=["GET"])
 def api_get_seuils():
     try:
         conn = psycopg2.connect("DATABASE_URL", sslmode='require')
