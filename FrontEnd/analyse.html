@@ -5,8 +5,8 @@
   <title>Analyse – BinWatch</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    #preview{max-width:100%;height:auto;margin-bottom:1rem}
-    .thumbnail{max-height:60px}
+    #preview { max-width: 100%; height: auto; margin-bottom: 1rem; }
+    .thumbnail { max-height: 60px; }
   </style>
 </head>
 <body class="bg-light text-dark">
@@ -18,7 +18,6 @@
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
       <span class="navbar-toggler-icon"></span>
     </button>
-
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav ms-auto">
         <li class="nav-item"><a class="nav-link text-white" href="index.html">Accueil</a></li>
@@ -26,16 +25,8 @@
         <li class="nav-item"><a class="nav-link text-white" href="tri.html">Recherche avancée</a></li>
         <li class="nav-item"><a class="nav-link text-white" href="map.html">Carte</a></li>
         <li class="nav-item"><a class="nav-link text-white" href="about.html">À propos</a></li>
-
-        <!-- Dashboard: caché par défaut -->
-        <li class="nav-item d-none" id="dashboardNav">
-          <a class="nav-link text-white" href="dashboard.html">Dashboard</a>
-        </li>
       </ul>
     </div>
-
-    <!-- Compte -->
-    <a id="accountBtn" class="btn btn-outline-light" href="login.html">Connexion</a>
   </div>
 </nav>
 
@@ -43,50 +34,91 @@
   <h1 class="text-success mb-4">Module d’analyse</h1>
   <p>Téléversez une image, ajoutez des informations, puis laissez BinWatch analyser l’état de la poubelle.</p>
 
-  <!-- Upload form -->
+  <!-- Réglage des seuils utilisateur -->
+  <div class="card mb-4">
+    <div class="card-header">
+      <button class="btn btn-outline-success" type="button"
+              data-bs-toggle="collapse" data-bs-target="#seuilsCard">
+        ⚙️ Ajuster les seuils
+      </button>
+    </div>
+    <div id="seuilsCard" class="collapse">
+      <div class="card-body">
+        <form id="seuilsForm">
+          <div class="row g-3">
+            <div class="col-6">
+              <label for="seuil_taille_ko" class="form-label">Taille (ko) min</label>
+              <input type="number" class="form-control"
+                     id="seuil_taille_ko" value="319"
+                      step="1">
+              <div id="stats_taille_ko" class="form-text text-muted"></div>
+            </div>
+            <div class="col-6">
+              <label for="seuil_ground_ratio" class="form-label">Ratio sol</label>
+              <input type="number" class="form-control"
+                     id="seuil_ground_ratio" value="0.23"
+                      step="0.01">
+              <div id="stats_ground_ratio" class="form-text text-muted"></div>
+            </div>
+            <div class="col-6">
+              <label for="seuil_entropy" class="form-label">Entropie min</label>
+              <input type="number" class="form-control"
+                     id="seuil_entropy" value="5048"
+                      step="1">
+              <div id="stats_entropy" class="form-text text-muted"></div>
+            </div>
+            <div class="col-6">
+              <label for="seuil_contrast" class="form-label">Contraste max</label>
+              <input type="number" class="form-control"
+                     id="seuil_contrast" value="75"
+                      step="1">
+              <div id="stats_contrast" class="form-text text-muted"></div>
+            </div>
+            <div class="col-6">
+              <label for="seuil_dark_pixel_ratio" class="form-label">Ratio pixels sombres</label>
+              <input type="number" class="form-control"
+                     id="seuil_dark_pixel_ratio" value="0.31"
+                      step="0.01">
+              <div id="stats_dark_pixel_ratio" class="form-text text-muted"></div>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-success mt-3">Appliquer</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Formulaire d’upload -->
   <form id="uploadForm" enctype="multipart/form-data">
     <div class="mb-3">
       <label for="imageInput" class="form-label">Téléverser une image :</label>
       <input class="form-control" type="file" id="imageInput" name="image" accept="image/*" required>
     </div>
 
-    <!-- Preview & annotation -->
     <div id="imageContainer" class="mb-3 d-none">
       <p class="fw-bold">Aperçu :</p>
       <img id="preview" class="img-fluid border">
-      <div class="mt-2">
-        <button type="button" id="btnPleine" class="btn btn-outline-success me-2">
-          Annoter : Pleine
-        </button>
-
-        <button type="button" id="btnVide"  class="btn btn-outline-success">
-          Annoter : Vide
-        </button>
+      <div class="btn-group mb-3">
+        <button type="button" id="btnPleine" class="btn btn-outline-success">Pleine</button>
+        <button type="button" id="btnVide" class="btn btn-outline-success">Vide</button>
+      </div>
+      <div id="questionnaire" class="mb-3 d-none">
+        <!-- Ici : champs localisation, date, annotation… -->
       </div>
     </div>
 
-    <!-- Questionnaire -->
-    <div id="detailsContainer" class="mb-3 d-none">
-      <div class="mb-2">
-        <label for="locationField" class="form-label">Localisation :</label>
-        <input class="form-control" type="text" id="locationField" name="location" placeholder="Ex : Rue Victor Hugo, Lyon" required>
-      </div>
-      <div class="mb-2">
-        <label for="dateField" class="form-label">Date de l'observation :</label>
-        <input class="form-control" type="date" id="dateField" name="date" required>
-      </div>
-      <input type="hidden" id="annotationField" name="annotation">
-    </div>
-
-    <button type="submit" class="btn btn-success mt-3 d-none" id="analyzeButton">Analyser</button>
+    <button type="submit" class="btn btn-success d-none" id="analyzeButton">Analyser</button>
   </form>
 
-  <!-- History -->
+  <!-- Historique -->
   <div class="mt-5">
     <h5>Historique des images téléversées</h5>
     <table class="table table-bordered table-hover">
       <thead class="table-success">
-      <tr><th>Miniature</th><th>Date</th><th>Annotation</th><th>Localisation</th><th>Chemin</th><th>Résultat</th></tr>
+        <tr>
+          <th>Miniature</th><th>Date</th><th>Annotation</th>
+          <th>Localisation</th><th>Résultat</th>
+        </tr>
       </thead>
       <tbody id="historyTable"></tbody>
     </table>
@@ -94,45 +126,73 @@
 </div>
 
 <footer class="bg-success text-white py-4 text-center">
-  &copy; 2025 BinWatch – Tous droits réservés.
+  BinWatch © 2025
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
 <script>
-  /* ---------- Connexion / Déconnexion + Dashboard ---------- */
-  (function () {
-    const btn          = document.getElementById('accountBtn');
-    const dashItem     = document.getElementById('dashboardNav');
-    const token        = localStorage.getItem('token');
-
-    if (token) {
-      btn.textContent = 'Déconnexion';
-      btn.href        = '#';
-      dashItem.classList.remove('d-none');
-      btn.addEventListener('click', e => {
-        e.preventDefault();
-        localStorage.removeItem('token');
-        location.reload();
-      });
-    } else {
-      btn.textContent = 'Connexion';
-      btn.href        = 'login.html';
-      dashItem.classList.add('d-none');
+  // ── Seuils & Stats ───────────────────────────────────────────
+  async function loadSeuils() {
+    const res = await fetch('/seuils');
+    const { success, seuils } = await res.json();
+    if (!success) return;
+    for (const key in seuils) {
+      const el = document.getElementById(`seuil_${key}`);
+      if (el) {
+        let v = seuils[key];
+        // arrondi : entiers ou 2 décimales
+        v = (key.includes('ratio'))
+            ? (Math.round(v * 100) / 100).toFixed(2)
+            : Math.round(v);
+        el.value = v;
+      }
     }
-  })();
+  }
 
-  /* ---------- Analyse logic (inchangé) ---------- */
-  const imageInput       = document.getElementById('imageInput');
-  const preview          = document.getElementById('preview');
-  const imageContainer   = document.getElementById('imageContainer');
-  const detailsContainer = document.getElementById('detailsContainer');
-  const annotationField  = document.getElementById('annotationField');
-  const analyzeButton    = document.getElementById('analyzeButton');
-  const locationField    = document.getElementById('locationField');
-  const dateField        = document.getElementById('dateField');
-  const historyTable     = document.getElementById('historyTable');
+  async function loadStats() {
+    const res = await fetch('/stats');
+    const { success, stats } = await res.json();
+    if (!success) return;
+    for (const key in stats) {
+      const s = stats[key];
+      const el = document.getElementById(`stats_${key}`);
+      if (el) {
+        el.textContent =
+          `Historique : min ${s.min}, max ${s.max}, moyenne ${s.mean}`;
+      }
+    }
+  }
 
+  async function saveSeuils(evt) {
+    evt.preventDefault();
+    const data = {};
+    ['taille_ko','ground_ratio','entropy','contrast','dark_pixel_ratio']
+      .forEach(key => {
+        data[key] = parseFloat(document.getElementById(`seuil_${key}`).value);
+      });
+    const res = await fetch('/seuils', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(data)
+    });
+    const { success } = await res.json();
+    alert(success ? 'Seuils mis à jour !' : 'Erreur lors de la mise à jour.');
+  }
+
+  // ── Upload & Analyse ────────────────────────────────────────
+  const uploadForm    = document.getElementById('uploadForm');
+  const imageInput    = document.getElementById('imageInput');
+  const preview       = document.getElementById('preview');
+  const imageContainer= document.getElementById('imageContainer');
+  const analyzeBtn    = document.getElementById('analyzeButton');
+  const btnPleine     = document.getElementById('btnPleine');
+  const btnVide       = document.getElementById('btnVide');
+  const questionnaire = document.getElementById('questionnaire');
+  const historyTable  = document.getElementById('historyTable');
+
+  let currentLabel = null;
+
+  // Affiche la vignette et les boutons Pleine/Vide
   imageInput.addEventListener('change', () => {
     const file = imageInput.files[0];
     if (!file) return;
@@ -140,120 +200,108 @@
     reader.onload = e => {
       preview.src = e.target.result;
       imageContainer.classList.remove('d-none');
+      analyzeBtn.classList.remove('d-none');
     };
     reader.readAsDataURL(file);
   });
 
-  function showQuestionnaire(a){
-    annotationField.value = a;
-    detailsContainer.classList.remove('d-none');
-    analyzeButton.classList.remove('d-none');
-  }
-  window.addEventListener('load', () => {
-    document.getElementById('btnPleine')
-            .addEventListener('click', () => showQuestionnaire('Pleine'));
-
-    document.getElementById('btnVide')
-            .addEventListener('click', () => showQuestionnaire('Vide'));
-  });
-
-  function updateHistoryTable(list){
-    historyTable.innerHTML = '';
-    list.forEach(({ annotation, location, date, imagePath, label }) => {
-
-      // on encode chaque segment du chemin pour échapper espaces, (), etc.
-      const imgSrc = imagePath
-              .split('/')                     // ['', 'uploads', 'nom fichier…']
-              .map(seg => encodeURIComponent(seg))
-              .join('/');                     // '/uploads/nom%20fichier%20%281%29.jpg'
-
-      historyTable.insertAdjacentHTML('beforeend', `
-      <tr>
-        <td><img src="${imgSrc}" class="thumbnail img-thumbnail"></td>
-        <td>${date}</td>
-        <td>${annotation}</td>
-        <td>${location}</td>
-        <td>${imagePath}</td>          <!-- on affiche le chemin brut -->
-        <td>${label}</td>
-      </tr>`);
-    });
+  // Sélection label
+  function setActive(activeBtn, otherBtn) {
+    activeBtn.classList.add('active');
+    otherBtn.classList.remove('active');
+    currentLabel = activeBtn.textContent;
   }
 
-
-  document.getElementById('uploadForm').addEventListener('submit', async e=>{
-    e.preventDefault();
-    if(!imageInput.files.length) return;
-
-    const fd = new FormData();
-    fd.append('image', imageInput.files[0]);
-    fd.append('annotation', annotationField.value);
-    fd.append('location', locationField.value);
-    fd.append('date', dateField.value);
-
-    const headers = {};
-    const token   = localStorage.getItem('token');
-    if(token) headers['Authorization'] = `Bearer ${token}`;
-
-    try{
-      const res = await fetch('/upload',{method:'POST',body:fd,headers});
-      if(!res.ok) throw new Error('Erreur serveur : '+res.status);
-      const data = await res.json();
-      const row  = {
-        annotation: annotationField.value,
-        location:   locationField.value,
-        date:       dateField.value,
-        imagePath:  data.imageUrl,
-        label:      data.label
-      };
-      updateHistoryTable([row,...JSON.parse(sessionStorage.getItem('tmpHist')||'[]')]);
-    }catch(err){ alert(err.message||'Erreur inconnue'); }
-  });
-
-  window.addEventListener('load', async ()=>{
-    const headers = {};
-    const token = localStorage.getItem('token');
-    if(token) headers['Authorization'] = `Bearer ${token}`;
-
-    try{
-      const res = await fetch('/history',{headers});
-      if(!res.ok) throw new Error('Impossible de charger l’historique');
-      const data = await res.json();
-      const list = data.map(d=>({
-        annotation:d.annotation||'–',
-        location:d.location||'–',
-        date:d.created_at?d.created_at.split('T')[0]:'–',
-        imagePath:d.path,
-        label:d.label||'–'
-      }));
-      updateHistoryTable(list);
-    }catch(err){
-      console.error(err);
-      historyTable.innerHTML = '<tr><td colspan="6">Erreur de chargement</td></tr>';
-    }
-  });
-
-  const btnPleine = document.getElementById('btnPleine');
-  const btnVide   = document.getElementById('btnVide');
-
-  /* Change la couleur du bouton sélectionné */
-  function setActive(selected, other) {
-    selected.classList.remove('btn-outline-success');
-    selected.classList.add   ('btn-success', 'text-white');
-
-    other.classList.remove   ('btn-success', 'text-white');
-    other.classList.add      ('btn-outline-success');
+  function showQuestionnaire(label) {
+    questionnaire.innerHTML = `
+      <div class="mb-2"><strong>Label choisi :</strong> ${label}</div>
+      <div class="mb-2">
+        <label>Date :</label>
+        <input type="date" class="form-control" id="q_date" required>
+      </div>
+      <div class="mb-2">
+        <label>Localisation :</label>
+        <input type="text" class="form-control" id="q_loc" placeholder="Ex : 48.85,2.35" required>
+      </div>
+      <div class="mb-2">
+        <label>Annotation :</label>
+        <textarea class="form-control" id="q_anno" rows="2" placeholder="Commentaire"></textarea>
+      </div>`;
+    questionnaire.classList.remove('d-none');
   }
 
-  /* Quand on clique sur Pleine */
   btnPleine.addEventListener('click', () => {
     showQuestionnaire('Pleine');
     setActive(btnPleine, btnVide);
   });
-
-  /* Quand on clique sur Vide */
   btnVide.addEventListener('click', () => {
     showQuestionnaire('Vide');
     setActive(btnVide, btnPleine);
+  });
+
+  // Envoie l’image + questionnaire au back
+  uploadForm.addEventListener('submit', async evt => {
+    evt.preventDefault();
+    if (!currentLabel) {
+      alert('Choisissez d’abord Pleine ou Vide');
+      return;
+    }
+    const form = new FormData();
+    form.append('image', imageInput.files[0]);
+    form.append('label_human', currentLabel);
+    form.append('date', document.getElementById('q_date').value);
+    form.append('loc', document.getElementById('q_loc').value);
+    form.append('anno', document.getElementById('q_anno').value);
+
+    const res = await fetch('/upload', { method: 'POST', body: form });
+    const { success, image_url, features } = await res.json();
+    if (!success) {
+      alert('Échec de l’upload');
+      return;
+    }
+
+    // Ajout historique
+    const row = {
+      thumb: image_url,
+      date: new Date().toLocaleDateString(),
+      annotation: document.getElementById('q_anno').value,
+      loc: document.getElementById('q_loc').value,
+      result: features.label_auto
+    };
+    const hist = JSON.parse(sessionStorage.getItem('tmpHist') || '[]');
+    sessionStorage.setItem('tmpHist', JSON.stringify([row, ...hist]));
+    updateHistoryTable([row, ...hist]);
+    // Réinitialisation
+    uploadForm.reset();
+    imageContainer.classList.add('d-none');
+    analyzeBtn.classList.add('d-none');
+    questionnaire.classList.add('d-none');
+    btnPleine.classList.remove('active');
+    btnVide.classList.remove('active');
+    currentLabel = null;
+  });
+
+  function updateHistoryTable(data) {
+    historyTable.innerHTML = '';
+    data.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><img src="${r.thumb}" class="thumbnail"></td>
+        <td>${r.date}</td>
+        <td>${r.annotation}</td>
+        <td>${r.loc}</td>
+        <td>${r.result}</td>`;
+      historyTable.appendChild(tr);
+    });
+  }
+
+  // Initialisation
+  window.addEventListener('load', () => {
+    loadSeuils();
+    loadStats();
+    document.getElementById('seuilsForm').addEventListener('submit', saveSeuils);
+    const hist = JSON.parse(sessionStorage.getItem('tmpHist') || '[]');
+    updateHistoryTable(hist);
   });
 </script>
 </body>
