@@ -121,20 +121,31 @@ def get_latest_seuils():
         return SEUILS_DEFAULTS
 
 def save_feature_record(feat):
+    """
+    Enregistre un jeu de caractéristiques dans la table public.features.
+    La table ne possède pas (pour l’instant) les colonnes `contrast`
+    et `dark_pixel_ratio`, donc on ne les inclut pas dans l’INSERT.
+    """
     with conn.cursor() as cur:
-        cur.execute("""
+        cur.execute(
+            """
             INSERT INTO features (
                 filename, width, height, size_kb,
                 avg_r, avg_g, avg_b, entropy,
-                contrast, dark_pixel_ratio, ground_ratio, label_auto
-            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        """, (
-            feat["filename"], feat["width"], feat["height"], feat["size_kb"],
-            feat["avg_r"], feat["avg_g"], feat["avg_b"], feat["entropy"],
-            feat["contrast"], feat["dark_pixel_ratio"], feat["ground_ratio"],
-            feat["label_auto"]
-        ))
-        conn.commit()
+                ground_ratio, label_auto
+            )
+            VALUES (%s, %s, %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s)
+            """,
+            (
+                feat["filename"], feat["width"], feat["height"], feat["size_kb"],
+                feat["avg_r"], feat["avg_g"], feat["avg_b"], feat["entropy"],
+                feat["ground_ratio"], feat["label_auto"],
+            ),
+        )
+    conn.commit()
+
 
 def reoptimise_thresholds():
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
