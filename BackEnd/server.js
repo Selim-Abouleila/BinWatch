@@ -274,7 +274,7 @@ app.get('/me/city', auth, async (req, res) => {
   }
 });
 
-app.use('/api/seuils', async (req, res) => {
+app.get('/api/seuils', async (req, res) => {
   try {
     const flaskRes = await fetch(`${FLASK_URL}/api/seuils`);
     const json = await flaskRes.json();
@@ -284,7 +284,16 @@ app.use('/api/seuils', async (req, res) => {
     res.status(500).json({ error: 'Erreur proxy seuils' });
   }
 });
-
+app.post('/api/seuils/reset', async (req, res) => {
+  try {
+    const flaskRes = await fetch(`${FLASK_URL}/api/seuils/reset`, { method: 'POST' });
+    const json = await flaskRes.json();
+    res.json(json);
+  } catch (e) {
+    console.error('[Proxy] Erreur proxy seuils reset :', e);
+    res.status(500).json({ error: 'Erreur proxy seuils reset' });
+  }
+});
 app.get('/history/by-city', auth, async (req, res) => {
   try {
     //-- retrouver la ville de l’utilisateur
