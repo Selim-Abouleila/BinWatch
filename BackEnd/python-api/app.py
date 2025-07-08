@@ -7,6 +7,7 @@ import numpy as np, cv2                   # opencv-python-headless
 from sklearn.metrics import accuracy_score
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import threading
 
 psycopg2.extensions.register_adapter(np.float64, psycopg2.extensions.Float)
 psycopg2.extensions.register_adapter(np.int64,   psycopg2.extensions.AsIs)
