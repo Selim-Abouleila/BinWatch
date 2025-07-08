@@ -129,6 +129,7 @@
         </div>
         <h2>Météo</h2>
         <div class="container">
+            <h3 id="todayTemperature" class="text-success"></h3>
             <div class="row mb-4">
                 <!-- Weekly Temperature Chart -->
                 <div class="col-md-6">
@@ -386,10 +387,10 @@
     window.addEventListener('load', async () => {
         try {
             /* 1. sécurité : rediriger si pas connecté */
-            if (!localStorage.getItem('token')) {
+            /*if (!localStorage.getItem('token')) {
                 location.href = 'login.html';
                 return;
-            }
+            }*/
 
             /* 2. Ville + historique */
             await loadCity();          // met à jour <span id="city">
@@ -508,6 +509,7 @@
             }
         } catch (error) {
             alert(error.message);
+            console.log(error)
         }
     }
 
@@ -861,7 +863,7 @@
                 'Aix-en-Provence': '13001'
             };
 
-            const city = currentCity || 'Paris';
+            const city = currentCity;
             const cityCode = cityCodeMap[city];
 
             if (!cityCode) {
