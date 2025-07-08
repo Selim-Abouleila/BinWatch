@@ -225,7 +225,11 @@ def serve(fname):
     return send_from_directory(IMG_DIR, fname)
 @app.route("/api/seuils", methods=["GET"])
 def api_get_seuils():
-    return jsonify(dict(SEUILS))  # cast pour éviter des erreurs de typage
+    try:
+        seuils = get_latest_seuils()
+        return jsonify(seuils)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/features", methods=["GET"])
@@ -240,9 +244,13 @@ def update_seuils():
     data = request.get_json()
     if not data:
         return jsonify(success=False, error="Aucune donnée reçue"), 400
+    try:
+        save_seuils_in_db(data)
+        SEUILS.update(data)
+        return jsonify(success=True, seuils=data)
+    except Exception as e:
+        return jsonify(success=False, error=str(e)), 500
 
-    # Ne pas modifier SEUILS global, juste renvoyer les seuils reçus
-    return jsonify(success=True, seuils=data)
 @app.route("/history", methods=["GET"])
 def get_history():
     try:
