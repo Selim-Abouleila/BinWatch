@@ -387,10 +387,6 @@ def reset_seuils():
         return jsonify(success=False, error=str(e)), 500
 
 
-@app.teardown_appcontext
-def close_db_pool(exception):
-    # this is called once per application‐context teardown (end of request or app shutdown)
-    db_pool.closeall()
 
 
 if __name__ == "__main__":
