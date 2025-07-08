@@ -73,13 +73,19 @@
             <li><a href="tri.html">Recherche avancée</a></li>
             <li><a href="map.html">Carte</a></li>
             <li><a href="about.html">À propos</a></li>
-            <li><a href="logout.html">Déconnexion</a></li>
+            <li><a href="index.html">Déconnexion</a></li>
         </ul>
     </div>
 
     <!-- Main Content -->
     <div class="content flex-grow-1">
         <h1 class="mb-3">Maire de : <span id="city"></span></h1>
+        <h3 class="text-success">
+            Bonjour, nous sommes le <span id="currentDate"></span>
+        </h3>
+        <h3 class="text-success">
+            <span id="totalPopulation"></span>
+        </h3>
         <h2 class="mb-3">Statistiques des Incidents</h2>
 
         <div class="d-inline-block p-2 bg-success text-white rounded">
@@ -158,6 +164,11 @@
 </div>
 
 <script>
+    const today = new Date();
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    const formattedDate = today.toLocaleDateString('fr-FR', options);
+    document.getElementById('currentDate').textContent = formattedDate;
+
     let analysisHistory = [];
     let currentCity     = '';
 
@@ -376,10 +387,10 @@
     window.addEventListener('load', async () => {
         try {
             /* 1. sécurité : rediriger si pas connecté */
-            /*if (!localStorage.getItem('token')) {
+            if (!localStorage.getItem('token')) {
                 location.href = 'login.html';
                 return;
-            }*/
+            }
 
             /* 2. Ville + historique */
             await loadCity();          // met à jour <span id="city">
@@ -819,6 +830,64 @@
     }
 
     window.addEventListener('load', displayWeeklyWeatherCharts);
+
+    async function displayPopulation() {
+        const cityCodeMap = {
+            'Paris': '75056',
+            'Marseille': '13055',
+            'Lyon': '69123',
+            'Toulouse': '31555',
+            'Nice': '06088',
+            'Nantes': '44109',
+            'Strasbourg': '67482',
+            'Montpellier': '34172',
+            'Bordeaux': '33063',
+            'Lille': '59350',
+            'Rennes': '35238',
+            'Reims': '51454',
+            'Le Havre': '76351',
+            'Saint-Étienne': '42218',
+            'Toulon': '83137',
+            'Angers': '49007',
+            'Grenoble': '38185',
+            'Dijon': '21231',
+            'Nîmes': '30189',
+            'Aix-en-Provence': '13001'
+        };
+
+        const city = currentCity || 'Paris';
+        const cityCode = cityCodeMap[city];
+
+        if (!cityCode) {
+            const totalPopulationElement = document.getElementById('totalPopulation');
+            totalPopulationElement.textContent = `Il n'y a pas de données de population pour ${city}.`;
+            return;
+        }
+
+        const apiUrl = `https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/population-francaise-communes/records?select=population_totale&where=code_insee_commune%20%3D%20${cityCode}&limit=100&refine=annee_recensement%3A"2016"`;
+
+        try {
+            const response = await fetch(apiUrl);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch data from the API. Status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const results = data.results;
+
+            const totalPopulation = results.reduce((sum, record) => sum + (record.population_totale || 0), 0);
+
+            const totalPopulationElement = document.getElementById('totalPopulation');
+            totalPopulationElement.textContent = `Il y a ${totalPopulation.toLocaleString()} habitants à ${city}.`;
+        } catch (error) {
+            console.error('Error fetching or processing data:', error);
+            const totalPopulationElement = document.getElementById('totalPopulation');
+            totalPopulationElement.textContent = `Erreur : ${error.message}`;
+        }
+    }
+
+    displayPopulation();
+
 </script>
 </body>
 </html>
