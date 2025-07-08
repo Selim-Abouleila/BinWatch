@@ -96,10 +96,27 @@ def auto_rule(feat: dict, arr_bgr: np.ndarray, seuils=None) -> str:
 
 # ➖➖➖ DATA ➖➖➖
 def get_latest_seuils():
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+    try:
+        conn = psycopg2.connect(os.getenv("DATABASE_URL"))
+        cur = conn.cursor()
         cur.execute("SELECT * FROM seuils ORDER BY id DESC LIMIT 1")
         row = cur.fetchone()
-        return dict(row) if row else SEUILS_DEFAULTS
+        cur.close()
+        conn.close()
+        if row:
+            return {
+                "taille_ko": row[1],
+                "ground_ratio": row[2],
+                "entropy": row[3],
+                "contrast": row[4],
+                "dark_pixel_ratio": row[5],
+            }
+        else:
+            return SEUILS_DEFAULTS
+    except Exception as e:
+        print("Erreur DB get_latest_seuils:", e)
+        return SEUILS_DEFAULTS
+
 def save_feature_record(feat):
     with conn.cursor() as cur:
         cur.execute("""
