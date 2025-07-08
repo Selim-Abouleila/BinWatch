@@ -164,13 +164,27 @@
 </div>
 
 <script>
+
+    let analysisHistory = [];
+    let currentCity     = '';
+
+    /* charge la ville de l’utilisateur connecté */
+    async function loadCity () {
+        const res   = await fetch('/me/city', { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error('/me/city failed');
+        const { ville } = await res.json();
+        console.log(`Ville chargée : ${ville}`);
+        document.getElementById('city').textContent = ville || 'Ville inconnue';
+        currentCity = ville || '';
+        console.log(`Ville chargée : ${currentCity}`);
+        document.getElementById('city').textContent = currentCity || 'Ville inconnue';
+        return currentCity;
+    }
+
     const today = new Date();
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     const formattedDate = today.toLocaleDateString('fr-FR', options);
     document.getElementById('currentDate').textContent = formattedDate;
-
-    let analysisHistory = [];
-    let currentCity     = '';
 
     async function getCityCoordinates(city) {
         try {
@@ -367,17 +381,6 @@
         return token ? { Authorization: `Bearer ${token}` } : {};
     };
 
-    /* charge la ville de l’utilisateur connecté */
-    async function loadCity () {
-        const res   = await fetch('/me/city', { headers: getAuthHeaders() });
-        if (!res.ok) throw new Error('/me/city failed');
-        const { ville } = await res.json();
-        document.getElementById('city').textContent = ville || 'Ville inconnue';
-        currentCity = ville || '';
-        document.getElementById('city').textContent = currentCity || 'Ville inconnue';
-        return currentCity;
-    }
-
     /* charge l’historique limité à cette ville */
     async function loadCityHistory () {
         const res = await fetch('/history/by-city', { headers: getAuthHeaders() });
@@ -387,13 +390,13 @@
     window.addEventListener('load', async () => {
         try {
             /* 1. sécurité : rediriger si pas connecté */
-            /*if (!localStorage.getItem('token')) {
+            if (!localStorage.getItem('token')) {
                 location.href = 'login.html';
                 return;
-            }*/
+            }
 
             /* 2. Ville + historique */
-            await loadCity();          // met à jour <span id="city">
+            await loadCity();         // met à jour <span id="city">
             await loadCityHistory();   // remplit analysisHistory
 
             /* 3. Interface */
@@ -408,43 +411,6 @@
         }
     });
 
-    async function fetchTemperatureDataWithRetry(coordinates) {
-        const cacheKey = `temperatureData_${coordinates[0]}_${coordinates[1]}`;
-        const cachedData = JSON.parse(localStorage.getItem(cacheKey));
-        const cacheExpiry = 60 * 60 * 1000;
-
-        if (cachedData && (Date.now() - cachedData.timestamp < cacheExpiry)) {
-            return cachedData.data;
-        }
-
-        let retries = 3;
-        let delay = 1000;
-
-        while (retries > 0) {
-            try {
-                const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coordinates[0]}&longitude=${coordinates[1]}&hourly=temperature_2m&timezone=auto`);
-                if (response.status === 429) {
-                    throw new Error('API rate limit exceeded. Retrying...');
-                }
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
-                return data;
-            } catch (error) {
-                console.error('Error fetching temperature data:', error.message);
-                if (error.message.includes('rate limit') && retries > 1) {
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                    delay *= 2;
-                    retries--;
-                } else {
-                    throw error;
-                }
-            }
-        }
-    }
     async function fetchTemperatureDataWithCache(coordinates) {
         const cacheKey = `temperatureData_${coordinates[0]}_${coordinates[1]}`;
         const cachedData = JSON.parse(localStorage.getItem(cacheKey));
@@ -832,66 +798,74 @@
 
     window.addEventListener('load', displayWeeklyWeatherCharts);
 
-    document.addEventListener('DOMContentLoaded', () => {
-        const totalPopulationElement = document.getElementById('totalPopulation');
-        if (!totalPopulationElement) {
-            console.error('Element with id "totalPopulation" not found.');
-            return;
-        }
 
-        async function displayPopulation() {
-            const cityCodeMap = {
-                'Paris': '75056',
-                'Marseille': '13055',
-                'Lyon': '69123',
-                'Toulouse': '31555',
-                'Nice': '06088',
-                'Nantes': '44109',
-                'Strasbourg': '67482',
-                'Montpellier': '34172',
-                'Bordeaux': '33063',
-                'Lille': '59350',
-                'Rennes': '35238',
-                'Reims': '51454',
-                'Le Havre': '76351',
-                'Saint-Étienne': '42218',
-                'Toulon': '83137',
-                'Angers': '49007',
-                'Grenoble': '38185',
-                'Dijon': '21231',
-                'Nîmes': '30189',
-                'Aix-en-Provence': '13001'
-            };
-
-            const city = currentCity;
-            const cityCode = cityCodeMap[city];
-
-            if (!cityCode) {
-                totalPopulationElement.textContent = `Il n'y a pas de données de population pour ${city}.`;
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            await loadCity(); // Ensure currentCity is updated
+            const totalPopulationElement = document.getElementById('totalPopulation');
+            if (!totalPopulationElement) {
+                console.error('Element with id "totalPopulation" not found.');
                 return;
             }
 
-            const apiUrl = `https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/population-francaise-communes/records?select=population_totale&where=code_insee_commune%20%3D%20${cityCode}&limit=100&refine=annee_recensement%3A"2016"`;
+            async function displayPopulation() {
+                const cityCodeMap = {
+                    'Paris': '75056',
+                    'Marseille': '13055',
+                    'Lyon': '69123',
+                    'Toulouse': '31555',
+                    'Nice': '06088',
+                    'Nantes': '44109',
+                    'Strasbourg': '67482',
+                    'Montpellier': '34172',
+                    'Bordeaux': '33063',
+                    'Lille': '59350',
+                    'Rennes': '35238',
+                    'Reims': '51454',
+                    'Le Havre': '76351',
+                    'Saint-Étienne': '42218',
+                    'Toulon': '83137',
+                    'Angers': '49007',
+                    'Grenoble': '38185',
+                    'Dijon': '21231',
+                    'Nîmes': '30189',
+                    'Aix-en-Provence': '13001'
+                };
 
-            try {
-                const response = await fetch(apiUrl);
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch data from the API. Status: ${response.status}`);
+                const city = currentCity;
+                console.log(`Fetching population data for city: ${city}`);
+                const cityCode = cityCodeMap[city];
+                console.log(`City code for ${city}: ${cityCode}`);
+
+                if (!cityCode) {
+                    totalPopulationElement.textContent = `Il n'y a pas de données de population pour ${city}.`;
+                    return;
                 }
 
-                const data = await response.json();
-                const results = data.results;
+                const apiUrl = `https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/population-francaise-communes/records?select=population_totale&where=code_insee_commune%20%3D%20${cityCode}&limit=100&refine=annee_recensement%3A"2016"`;
 
-                const totalPopulation = results.reduce((sum, record) => sum + (record.population_totale || 0), 0);
+                try {
+                    const response = await fetch(apiUrl);
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch data from the API. Status: ${response.status}`);
+                    }
 
-                totalPopulationElement.textContent = `Il y a ${totalPopulation.toLocaleString()} habitants à ${city}.`;
-            } catch (error) {
-                console.error('Error fetching or processing data:', error);
-                totalPopulationElement.textContent = `Erreur : ${error.message}`;
+                    const data = await response.json();
+                    const results = data.results;
+
+                    const totalPopulation = results.reduce((sum, record) => sum + (record.population_totale || 0), 0);
+
+                    totalPopulationElement.textContent = `Il y a ${totalPopulation.toLocaleString()} habitants à ${city}.`;
+                } catch (error) {
+                    console.error('Error fetching or processing data:', error);
+                    totalPopulationElement.textContent = `Erreur : ${error.message}`;
+                }
             }
-        }
 
-        displayPopulation();
+            await displayPopulation();
+        } catch (error) {
+            console.error('Error initializing the page:', error);
+        }
     });
 
 </script>
