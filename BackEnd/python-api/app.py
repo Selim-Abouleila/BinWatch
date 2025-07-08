@@ -249,7 +249,8 @@ def serve(fname):
 @app.route("/api/seuils", methods=["GET"])
 def api_get_seuils():
     try:
-        conn = psycopg2.connect("DATABASE_URL", sslmode='require')
+        conn = psycopg2.connect(os.environ.get("DATABASE_URL"), sslmode='require')
+
         cur = conn.cursor()
         cur.execute("SELECT * FROM seuils ORDER BY id DESC LIMIT 1")
         row = cur.fetchone()
@@ -264,17 +265,20 @@ def api_get_seuils():
         )
         return jsonify(seuils)
     except Exception as e:
-        print("Erreur proxy seuils :", str(e))
-        return jsonify(error="Erreur proxy seuils"), 500
+        print("Erreur proxy seuils dans /api/seuils:", str(e))
+        return jsonify(error="Erreur proxy seuils dans /api/seuils"), 500
 
 
 @app.route("/features", methods=["GET"])
 def get_features():
     try:
-        with open("data/features.json", "r") as f:
-            return jsonify(json.load(f))
-    except:
-        return jsonify([])
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT * FROM features ORDER BY id DESC")
+            rows = cur.fetchall()
+        return jsonify(rows)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/seuils", methods=["POST"])
 def update_seuils():
     data = request.get_json()
@@ -287,15 +291,7 @@ def update_seuils():
     except Exception as e:
         return jsonify(success=False, error=str(e)), 500
 
-@app.route("/history", methods=["GET"])
-def get_history():
-    try:
-        if not os.path.exists("data/history.json"):
-            return jsonify([])
-        with open("data/history.json", "r") as f:
-            return jsonify(json.load(f))
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+
 
 @app.route("/api/seuils/reset", methods=["POST"])
 def reset_seuils():
