@@ -80,7 +80,17 @@
 
     <button type="submit" class="btn btn-success mt-3 d-none" id="analyzeButton">Analyser</button>
   </form>
-
+  <hr class="my-5">
+  <h2 class="text-success mb-3">Configuration des seuils</h2>
+  <form id="seuilsForm" class="row g-3">
+    <div class="col-md-6" id="seuilsInputs"></div>
+    <div class="col-12">
+      <button type="submit" class="btn btn-outline-success">Mettre à jour les seuils</button>
+    </div>
+    <button type="button" class="btn btn-outline-danger ms-2" id="resetSeuilsButton">
+  Réinitialiser les seuils
+</button>
+  </form>
   <!-- History -->
   <div class="mt-5">
     <h5>Historique des images téléversées</h5>
@@ -132,7 +142,7 @@
   const locationField    = document.getElementById('locationField');
   const dateField        = document.getElementById('dateField');
   const historyTable     = document.getElementById('historyTable');
-
+  
   imageInput.addEventListener('change', () => {
     const file = imageInput.files[0];
     if (!file) return;
@@ -177,37 +187,50 @@
         <td>${label}</td>
       </tr>`);
     });
+    
   }
+  
 
 
-  document.getElementById('uploadForm').addEventListener('submit', async e=>{
+  document.getElementById('uploadForm').addEventListener('submit', async e => {
     e.preventDefault();
-    if(!imageInput.files.length) return;
+    if (!imageInput.files.length) return;
 
-    const fd = new FormData();
-    fd.append('image', imageInput.files[0]);
-    fd.append('annotation', annotationField.value);
-    fd.append('location', locationField.value);
-    fd.append('date', dateField.value);
+    const formData = new FormData();
+    formData.append("image", imageInput.files[0]);
+    formData.append("annotation", annotationField.value);
+    formData.append("location", locationField.value);
+    formData.append("date", dateField.value);
 
-    const headers = {};
-    const token   = localStorage.getItem('token');
-    if(token) headers['Authorization'] = `Bearer ${token}`;
+    const seuils = {};
+    document.querySelectorAll("#seuilsForm input").forEach(input => {
+      seuils[input.name] = parseFloat(input.value);
+    });
+    formData.append("seuils", JSON.stringify(seuils));
 
-    try{
-      const res = await fetch('/upload',{method:'POST',body:fd,headers});
-      if(!res.ok) throw new Error('Erreur serveur : '+res.status);
+    try {
+      const res = await fetch("/upload", { method: "POST", body: formData });
+      if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`);
       const data = await res.json();
-      const row  = {
+
+      const row = {
         annotation: annotationField.value,
-        location:   locationField.value,
-        date:       dateField.value,
-        imagePath:  data.imageUrl,
-        label:      data.label
+        location: locationField.value,
+        date: dateField.value,
+        imagePath: data.imageUrl,
+        label: data.label
       };
-      updateHistoryTable([row,...JSON.parse(sessionStorage.getItem('tmpHist')||'[]')]);
-    }catch(err){ alert(err.message||'Erreur inconnue'); }
-  });
+
+      const previous = JSON.parse(sessionStorage.getItem("tmpHist") || "[]");
+      const newList = [row, ...previous];
+      sessionStorage.setItem("tmpHist", JSON.stringify(newList));
+
+      updateHistoryTable(newList);
+    } catch (err) {
+      alert(err.message || 'Erreur inconnue');
+    }
+});
+
 
   window.addEventListener('load', async ()=>{
     const headers = {};
@@ -254,6 +277,43 @@
   btnVide.addEventListener('click', () => {
     showQuestionnaire('Vide');
     setActive(btnVide, btnPleine);
+  });
+  async function chargerSeuils() {
+    const res = await fetch("/api/seuils");
+    const seuils = await res.json();
+    const container = document.getElementById("seuilsInputs");
+    container.innerHTML = "";
+    for (const [key, val] of Object.entries(seuils)) {
+      container.innerHTML += `
+        <div class="mb-2">
+          <label class="form-label">${key}</label>
+          <input type="number" step="any" name="${key}" value="${val}" class="form-control" required>
+        </div>`;
+    }
+  }
+
+  document.getElementById("seuilsForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  alert("Seuils enregistrés localement pour cette session !");
+});
+  document.getElementById("resetSeuilsButton").addEventListener("click", async () => {
+  if (!confirm("Confirmer la réinitialisation des seuils par défaut ?")) return;
+
+  try {
+    const res = await fetch("/api/seuils/reset", { method: "POST" });
+    if (!res.ok) throw new Error("Erreur côté serveur Flask");
+    alert("Seuils réinitialisés !");
+    chargerSeuils(); // recharge les champs
+  } catch (err) {
+    alert("Erreur lors de la réinitialisation : " + err.message);
+  }
+});;
+
+  window.addEventListener("load", chargerSeuils);
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    chargerSeuils(); // appel automatique au chargement de la page
   });
 </script>
 </body>
