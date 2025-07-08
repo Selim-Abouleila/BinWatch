@@ -36,8 +36,14 @@
         .table {
             font-size: 0.85rem;
         }
-        h1, h2, h3 {
+        h3 {
             font-size: 1.25rem;
+        }
+        h1{
+            font-size : 3rem;
+        }
+        h2 {
+            font-size: 2rem;
         }
         .btn {
             font-size: 0.85rem;
@@ -74,13 +80,8 @@
     <!-- Main Content -->
     <div class="content flex-grow-1">
         <h1 class="mb-3">Maire de : <span id="city"></span></h1>
-        <h2 class="mb-3">Statistiques</h2>
-        <p id="todayTemperature" class="mb-3 text-muted small">
-            <!-- la valeur sera remplie par JS -->
-        </p>
-        <div class="mb-3">
-            <button id="addBinsButton" class="btn btn-success">Ajouter 10 poubelles à Lyon</button>
-        </div>
+        <h2 class="mb-3">Statistiques des Incidents</h2>
+
         <div class="d-inline-block p-2 bg-success text-white rounded">
             <span id="resolvedBinsCount" class="fw-bold fs-5">0</span>
             <small>Poubelles résolues</small>
@@ -121,9 +122,24 @@
                 </div>
             </div>
         </div>
+        <h2>Météo</h2>
+        <div class="container">
+            <div class="row mb-4">
+                <!-- Weekly Temperature Chart -->
+                <div class="col-md-6">
+                    <h4>Températures de la semaine</h4>
+                    <canvas id="weeklyTemperatureChart" width="300" height="300"></canvas>
+                </div>
+                <!-- Weekly Precipitation Chart -->
+                <div class="col-md-6">
+                    <h4>Précipitations de la semaine</h4>
+                    <canvas id="weeklyPrecipitationChart" width="300" height="300"></canvas>
+                </div>
+            </div>
+        </div>
 
         <div class="mb-4">
-            <h3>Gestion des poubelles en traitement</h3>
+            <h2>Gestion des poubelles en traitement</h2>
             <table class="table table-bordered table-hover">
                 <thead class="table-success">
                 <tr>
@@ -162,7 +178,7 @@
             throw new Error('Invalid data received from API');
         } catch (error) {
             console.error('Error fetching city coordinates:', error);
-            return [48.8566, 2.3522]; // Default to Paris
+            return [48.8566, 2.3522];
         }
     }
 
@@ -183,24 +199,24 @@
             throw new Error('Invalid data received from API');
         } catch (error) {
             console.error('Error fetching address coordinates:', error);
-            return null; // Return null if the address cannot be resolved
+            return null;
         }
     }
 
     function calculateColor(count) {
-        if (count === 1) return '#FFFF00'; // Yellow for 1 report
-        if (count === 2) return '#FFCC00'; // Orange-yellow for 2 reports
-        if (count === 3) return '#FF9900'; // Orange for 3 reports
-        if (count === 4) return '#FF6600'; // Red-orange for 4 reports
-        return '#FF0000'; // Red for 5 or more reports
+        if (count === 1) return '#FFFF00';
+        if (count === 2) return '#FFCC00';
+        if (count === 3) return '#FF9900';
+        if (count === 4) return '#FF6600';
+        return '#FF0000';
     }
 
     function calculateRadius(count) {
-        return 50 + count * 20; // Base radius + dynamic increase
+        return 50 + count * 20;
     }
 
     async function initializeHeatmap() {
-        const city = currentCity || 'Paris'; // Default to Paris
+        const city = currentCity || 'Paris';
         const coordinates = await getCityCoordinates(city);
 
         if (!coordinates || coordinates.some(coord => isNaN(coord))) {
@@ -208,20 +224,20 @@
             return;
         }
 
-        const heatmap = L.map('heatmap').setView(coordinates, 13); // Adjust zoom level for better readability
+        const heatmap = L.map('heatmap').setView(coordinates, 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(heatmap);
 
         // Define a modern custom icon
         const modernIcon = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/128/684/684809.png', // Example modern icon
-            iconSize: [40, 40], // Icon size [width, height]
-            iconAnchor: [20, 40], // Anchor point of the icon [x, y]
-            popupAnchor: [0, -40] // Position of the popup relative to the icon [x, y]
+            iconUrl: 'https://cdn-icons-png.flaticon.com/128/684/684809.png',
+            iconSize: [40, 40],
+            iconAnchor: [20, 40],
+            popupAnchor: [0, -40]
         });
 
-        const locationCounts = {}; // Count occurrences of each location
+        const locationCounts = {};
         for (const { location } of analysisHistory) {
             if (location) {
                 locationCounts[location] = (locationCounts[location] || 0) + 1;
@@ -229,24 +245,22 @@
         }
 
         for (const location in locationCounts) {
-            let latLng = location.split(',').map(Number); // Check if it's already lat,lng format
+            let latLng = location.split(',').map(Number);
             if (latLng.some(isNaN)) {
-                latLng = await getAddressCoordinates(location); // Convert address to lat,lng
+                latLng = await getAddressCoordinates(location);
             }
             if (latLng && !latLng.some(isNaN)) {
                 const count = locationCounts[location];
                 const radius = calculateRadius(count);
                 const color = calculateColor(count);
 
-                // Add circle for density
                 L.circle(latLng, {
                     radius: radius,
                     color: color,
-                    weight: 1, // Smaller border
+                    weight: 1,
                     fillOpacity: 0.7
                 }).addTo(heatmap);
 
-                // Add modern marker for precise location
                 L.marker(latLng, { icon: modernIcon })
                     .addTo(heatmap)
                     .bindPopup(`<strong>${location}</strong><br>Occurrences: ${count}`);
@@ -271,7 +285,6 @@
 
         const binsChartCtx = document.getElementById('binsChart').getContext('2d');
 
-        // Destroy the existing chart instance if it exists
         if (binsChartInstance) {
             binsChartInstance.destroy();
         }
@@ -299,14 +312,14 @@
     let heatmapInstance = null;
 
     async function updateHeatmap(filteredData) {
-        // Check if the map instance exists and remove it
+
         if (heatmapInstance) {
             heatmapInstance.remove();
-            heatmapInstance = null; // Reset the instance
+            heatmapInstance = null;
         }
 
         // Initialize a new map instance
-        heatmapInstance = L.map('heatmap').setView([48.8566, 2.3522], 13); // Default to Paris
+        heatmapInstance = L.map('heatmap').setView([48.8566, 2.3522], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(heatmapInstance);
@@ -358,15 +371,15 @@
     async function loadCityHistory () {
         const res = await fetch('/history/by-city', { headers: getAuthHeaders() });
         if (!res.ok) throw new Error('/history/by-city failed');
-        analysisHistory = await res.json();      // ← remplit le tableau global
+        analysisHistory = await res.json();
     }
     window.addEventListener('load', async () => {
         try {
             /* 1. sécurité : rediriger si pas connecté */
-            if (!localStorage.getItem('token')) {
+            /*if (!localStorage.getItem('token')) {
                 location.href = 'login.html';
                 return;
-            }
+            }*/
 
             /* 2. Ville + historique */
             await loadCity();          // met à jour <span id="city">
@@ -387,14 +400,14 @@
     async function fetchTemperatureDataWithRetry(coordinates) {
         const cacheKey = `temperatureData_${coordinates[0]}_${coordinates[1]}`;
         const cachedData = JSON.parse(localStorage.getItem(cacheKey));
-        const cacheExpiry = 60 * 60 * 1000; // 1 hour
+        const cacheExpiry = 60 * 60 * 1000;
 
         if (cachedData && (Date.now() - cachedData.timestamp < cacheExpiry)) {
-            return cachedData.data; // Return cached data if valid
+            return cachedData.data;
         }
 
-        let retries = 3; // Number of retries
-        let delay = 1000; // Initial delay in milliseconds
+        let retries = 3;
+        let delay = 1000;
 
         while (retries > 0) {
             try {
@@ -407,16 +420,16 @@
                 }
 
                 const data = await response.json();
-                localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() })); // Cache the response
+                localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
                 return data;
             } catch (error) {
                 console.error('Error fetching temperature data:', error.message);
                 if (error.message.includes('rate limit') && retries > 1) {
-                    await new Promise(resolve => setTimeout(resolve, delay)); // Wait before retrying
-                    delay *= 2; // Exponential backoff
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2;
                     retries--;
                 } else {
-                    throw error; // Exit on other errors
+                    throw error;
                 }
             }
         }
@@ -424,14 +437,14 @@
     async function fetchTemperatureDataWithCache(coordinates) {
         const cacheKey = `temperatureData_${coordinates[0]}_${coordinates[1]}`;
         const cachedData = JSON.parse(localStorage.getItem(cacheKey));
-        const cacheExpiry = 60 * 60 * 1000; // 1 hour
+        const cacheExpiry = 60 * 60 * 1000;
 
         if (cachedData && (Date.now() - cachedData.timestamp < cacheExpiry)) {
-            return cachedData.data; // Return cached data if valid
+            return cachedData.data;
         }
 
-        let retries = 3; // Number of retries
-        let delay = 1000; // Initial delay in milliseconds
+        let retries = 3;
+        let delay = 1000;
 
         while (retries > 0) {
             try {
@@ -444,24 +457,21 @@
                 }
 
                 const data = await response.json();
-                localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() })); // Cache the response
+                localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
                 return data;
             } catch (error) {
                 console.error('Error fetching temperature data:', error.message);
                 if (error.message.includes('rate limit') && retries > 1) {
-                    await new Promise(resolve => setTimeout(resolve, delay)); // Wait before retrying
-                    delay *= 2; // Exponential backoff
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2;
                     retries--;
                 } else {
-                    throw error; // Exit on other errors
+                    throw error;
                 }
             }
         }
     }
 
-    let temperatureChartInstance = null;
-
-    // Function to fetch and display today's temperature
     async function displayTodayTemperature() {
         const city = currentCity || 'Paris';
         const coordinates = await getCityCoordinates(city);
@@ -487,11 +497,10 @@
                 document.getElementById('todayTemperature').textContent = 'Aucune donnée disponible pour aujourd\'hui.';
             }
         } catch (error) {
-            alert(error.message); // Notify the user
+            alert(error.message);
         }
     }
 
-    // Function to update the temperature chart
     async function updateTemperatureChart(filteredData) {
         const temperaturePerHour = {};
         filteredData.forEach(({ time, temperature }) => {
@@ -503,7 +512,6 @@
 
         const temperatureChartCtx = document.getElementById('temperatureChart').getContext('2d');
 
-        // Destroy the existing chart instance if it exists
         if (temperatureChartInstance) {
             temperatureChartInstance.destroy();
         }
@@ -529,13 +537,12 @@
         });
     }
 
-    // Event listener for the filter form
     document.getElementById('dateFilterForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const startDate = document.getElementById('startDate').value;
         const endDate = document.getElementById('endDate').value;
 
-        const city = currentCity || 'Paris'; // Default to Paris
+        const city = currentCity || 'Paris';
         const coordinates = await getCityCoordinates(city);
 
         if (!coordinates || coordinates.some(coord => isNaN(coord))) {
@@ -558,57 +565,8 @@
         }
     });
 
-    // On page load, display today's temperature
     window.addEventListener('load', async () => {
         await displayTodayTemperature();
-    });
-
-    document.getElementById('addBinsButton').addEventListener('click', () => {
-        const history = analysisHistory;
-        const today = new Date();
-
-        // Predefined random locations in Lyon
-        const locations = [
-            'Place Bellecour, Lyon',
-            'Parc de la Tête d\'Or, Lyon',
-            'Rue de la République, Lyon',
-            'Confluence, Lyon',
-            'Vieux Lyon, Lyon',
-            'Part-Dieu, Lyon',
-            'Fourvière, Lyon',
-            'Guillotière, Lyon',
-            'Croix-Rousse, Lyon',
-            'Gerland, Lyon'
-        ];
-
-        for (let i = 0; i < 50; i++) {
-            // Random location
-            const location = locations[Math.floor(Math.random() * locations.length)];
-
-            // Random date within the last 30 days
-            const randomDate = new Date(today);
-            randomDate.setDate(today.getDate() - Math.floor(Math.random() * 30));
-            const formattedDate = randomDate.toISOString().split('T')[0];
-
-            // Random annotation
-            const annotation = Math.random() < 0.5 ? 'Pleine' : 'Vide';
-
-            history.push({
-                annotation: annotation,
-                location: location,
-                date: formattedDate,
-                imagePath: '', // No image
-                status: 'processing',
-                label: annotation,
-            });
-        }
-
-        analysisHistory = history;
-        updateProcessingBinsTable();
-        updateResolvedBinsCount();
-        updateBinsPieChart();
-        updateBinsChart(analysisHistory);
-        alert('50 poubelles avec des localisations, annotations et dates aléatoires ajoutées à Lyon.');
     });
     function updateProcessingBinsTable() {
         const history = analysisHistory;
@@ -632,21 +590,17 @@
     }
 
     function resolveBin(index) {
-        // 1. trouver la poubelle “processing” à l’index donné
         const processingBins = analysisHistory.filter(b => b.status === 'processing');
         const bin = processingBins[index];
         if (!bin) return;
 
-        // 2. la marquer “resolved”
         bin.status = 'resolved';
 
-        // 3. mettre à jour l’interface
         updateProcessingBinsTable();
         updateResolvedBinsCount();
         updateBinsPieChart();
     }
 
-    // On page load, initialize the processing bins table
     window.addEventListener("load", () => {
         updateProcessingBinsTable();
     });
@@ -655,10 +609,7 @@
         const resolvedBinsCount = history.filter(bin => bin.status === "resolved").length;
         document.getElementById("resolvedBinsCount").textContent = resolvedBinsCount;
     }
-
-    // Call this function on page load and after resolving a bin
     window.addEventListener("load", updateResolvedBinsCount);
-
 
     let binsPieChartInstance = null;
 
@@ -698,9 +649,176 @@
         });
     }
 
-    // Call this function on page load
-    
+    async function fetchWeeklyTemperature(city) {
+        try {
+            const coordinates = await getCityCoordinates(city);
+            const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coordinates[0]}&longitude=${coordinates[1]}&daily=temperature_2m_max,temperature_2m_min&timezone=auto`);
+            if (!response.ok) throw new Error('Failed to fetch temperature data');
+            const data = await response.json();
+            return data.daily;
+        } catch (error) {
+            console.error('Error fetching weekly temperature:', error);
+            return null;
+        }
+    }
 
+    async function displayWeeklyTemperatureChart() {
+        const city = currentCity || 'Paris';
+        const temperatureData = await fetchWeeklyTemperature(city);
+
+        if (!temperatureData) {
+            console.error('No temperature data available');
+            return;
+        }
+
+        const labels = temperatureData.time.map(date => new Date(date).toLocaleDateString('fr-FR', { weekday: 'long' }));
+        const maxTemperatures = temperatureData.temperature_2m_max;
+        const minTemperatures = temperatureData.temperature_2m_min;
+
+        const ctx = document.getElementById('weeklyTemperatureChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Température Max (°C)',
+                        data: maxTemperatures,
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        fill: true
+                    },
+                    {
+                        label: 'Température Min (°C)',
+                        data: minTemperatures,
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: true, position: 'top' }
+                },
+                scales: {
+                    x: { title: { display: true, text: 'Jour de la semaine' } },
+                    y: { title: { display: true, text: 'Température (°C)' } }
+                }
+            }
+        });
+    }
+    window.addEventListener('load', displayWeeklyTemperatureChart);
+
+    async function fetchWeeklyWeather(city) {
+        try {
+            const coordinates = await getCityCoordinates(city);
+            const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coordinates[0]}&longitude=${coordinates[1]}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto`);
+            if (!response.ok) throw new Error('Failed to fetch weather data');
+            const data = await response.json();
+            return data.daily;
+        } catch (error) {
+            console.error('Error fetching weekly weather:', error);
+            return null;
+        }
+    }
+
+    let temperatureChartInstance = null;
+    let precipitationChartInstance = null;
+
+    function resetCanvas(canvasId) {
+        const canvas = document.getElementById(canvasId);
+        const parent = canvas.parentNode;
+        parent.removeChild(canvas);
+
+        const newCanvas = document.createElement('canvas');
+        newCanvas.id = canvasId;
+        newCanvas.width = 300;
+        newCanvas.height = 300;
+        parent.appendChild(newCanvas);
+    }
+
+    async function displayWeeklyWeatherCharts() {
+        const city = currentCity || 'Paris';
+        const weatherData = await fetchWeeklyWeather(city);
+
+        if (!weatherData) {
+            console.error('No weather data available');
+            return;
+        }
+
+        const labels = weatherData.time.map(date => new Date(date).toLocaleDateString('fr-FR', { weekday: 'long' }));
+        const maxTemperatures = weatherData.temperature_2m_max;
+        const minTemperatures = weatherData.temperature_2m_min;
+        const precipitation = weatherData.precipitation_sum;
+
+        // Reset and recreate the temperature chart canvas
+        resetCanvas('weeklyTemperatureChart');
+        const tempCtx = document.getElementById('weeklyTemperatureChart').getContext('2d');
+        temperatureChartInstance = new Chart(tempCtx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Température Max (°C)',
+                        data: maxTemperatures,
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        fill: true
+                    },
+                    {
+                        label: 'Température Min (°C)',
+                        data: minTemperatures,
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: true, position: 'top' }
+                },
+                scales: {
+                    x: { title: { display: true, text: 'Jour de la semaine' } },
+                    y: { title: { display: true, text: 'Température (°C)' } }
+                }
+            }
+        });
+
+        resetCanvas('weeklyPrecipitationChart');
+        const precipCtx = document.getElementById('weeklyPrecipitationChart').getContext('2d');
+        precipitationChartInstance = new Chart(precipCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Précipitations (mm)',
+                        data: precipitation,
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: true, position: 'top' }
+                },
+                scales: {
+                    x: { title: { display: true, text: 'Jour de la semaine' } },
+                    y: { title: { display: true, text: 'Précipitations (mm)' } }
+                }
+            }
+        });
+    }
+
+    window.addEventListener('load', displayWeeklyWeatherCharts);
 </script>
 </body>
 </html>
