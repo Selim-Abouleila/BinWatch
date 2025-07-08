@@ -245,16 +245,27 @@ def classify_endpoint():
 @app.route("/images/<path:fname>")
 def serve(fname):
     return send_from_directory(IMG_DIR, fname)
-@app.route("/api/seuils", methods=["GET"])
+
+@@app.route("/api/seuils", methods=["GET"])
 def api_get_seuils():
     try:
-        print(">>> Appel de /api/seuils")
-        seuils = get_latest_seuils()
-        print(">>> Seuils récupérés :", seuils)
+        conn = psycopg2.connect("DATABASE_URL", sslmode='require')
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM seuils ORDER BY id DESC LIMIT 1")
+        row = cur.fetchone()
+        if not row:
+            return jsonify(SEUILS_DEFAULTS)
+        seuils = dict(
+            taille_ko=row[1],
+            ground_ratio=row[2],
+            entropy=row[3],
+            contrast=row[4],
+            dark_pixel_ratio=row[5],
+        )
         return jsonify(seuils)
     except Exception as e:
-        print("!!! ERREUR /api/seuils :", e)
-        return jsonify({"error": "Erreur proxy seuils"}), 500
+        print("Erreur proxy seuils :", str(e))
+        return jsonify(error="Erreur proxy seuils"), 500
 
 
 @app.route("/features", methods=["GET"])
