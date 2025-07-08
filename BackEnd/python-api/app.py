@@ -93,7 +93,7 @@ def auto_rule(feat: dict, arr_bgr: np.ndarray, seuils=None) -> str:
     h = arr_bgr.shape[0]
     ground_slice = arr_bgr[int(h * 0.55):, :]
     gr = plast_mask_ratio(ground_slice)
-    feat["ground_ratio"] = round(gr, 4)
+    feat["ground_ratio"] = float(round(gr, 4))
 
     score = 0
     if feat["size_kb"] > seuils["taille_ko"]: score += 1
