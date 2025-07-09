@@ -112,11 +112,11 @@
     }).addTo(map);
 
     // Custom icon
-    const greenIcon = L.icon({
-        iconUrl:'https://cdn-icons-png.flaticon.com/512/684/684908.png',
-        iconSize:[30,30],
-        iconAnchor:[15,30],
-        popupAnchor:[0,-30]
+    const modernIcon = L.icon({
+        iconUrl: 'https://cdn-icons-png.flaticon.com/128/684/684809.png',
+        iconSize: [40, 40],
+        iconAnchor: [20, 40],
+        popupAnchor: [0, -40]
     });
 
     function geocodeAndAdd(address,label='Localisation signalée'){
@@ -169,6 +169,35 @@
             .catch(()=>alert('Erreur de recherche.'));
         document.getElementById('cityInput').value='';
     });
+    async function loadBinsOnMap() {
+        try {
+            const response = await fetch('/history');
+            if (!response.ok) throw new Error('Failed to fetch bins data');
+            const binsData = await response.json();
+
+            binsData.forEach(({ location, annotation, created_at }) => {
+                if (location) {
+                    const latLng = location.split(',').map(Number);
+                    if (!latLng.some(isNaN)) {
+                        L.marker(latLng, { icon: modernIcon })
+                            .addTo(map)
+                            .bindPopup(`
+                            <strong>Annotation:</strong> ${annotation || 'N/A'}<br>
+                            <strong>Date:</strong> ${new Date(created_at).toLocaleDateString('fr-FR')}<br>
+                            <strong>Location:</strong> ${location}
+                        `);
+                    } else {
+                        console.warn('Invalid location data:', location);
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Error loading bins on map:', error);
+        }
+    }
+
+    // Call the function to load bins on the map
+    window.addEventListener('load', loadBinsOnMap);
 </script>
 </body>
 </html>
