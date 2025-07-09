@@ -301,8 +301,13 @@
 
     function updateBinsChart(filteredData) {
         const binsPerDay = {};
-        filteredData.forEach(({ date }) => {
-            binsPerDay[date] = (binsPerDay[date] || 0) + 1;
+
+        // Extract and format dates from `created_at`
+        filteredData.forEach(({ created_at }) => {
+            if (created_at) {
+                const datePart = created_at.split('T')[0]; // Extract the date part
+                binsPerDay[datePart] = (binsPerDay[datePart] || 0) + 1;
+            }
         });
 
         const sortedDates = Object.keys(binsPerDay).sort((a, b) => new Date(a) - new Date(b));
@@ -319,7 +324,7 @@
             data: {
                 labels: sortedDates,
                 datasets: [{
-                    label: 'Poubelles analysés',
+                    label: 'Poubelles analysées',
                     data: sortedBins,
                     borderColor: 'rgba(255, 99, 132, 1)',
                     backgroundColor: 'rgba(255, 99, 132, 0.2)',
